@@ -51,14 +51,17 @@ typedef struct v3_handle {
 
     ventrilo_key_ctx *encryptionkey;
 
-    v3_event *evqueue;
-    pthread_mutext_t *evqueue_mutex;
-    pthread_cond_t *evqueue_cond;
+    v3_event *ev_recvq;
+    pthread_mutext_t *ev_recvq_mutex;
+    pthread_cond_t *ev_recvq_cond;
+
+    v3_event *ev_sendq;
+    pthread_mutext_t *ev_sendq_mutex;
+    pthread_cond_t *ev_sendq_cond;
 
     int debuglevel;
     int loggedin;
     int sockd;
-    int evpipe[2];
 
     int master_volume;
 
