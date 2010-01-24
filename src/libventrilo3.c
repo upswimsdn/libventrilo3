@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <stdlib.h>
 
 /*
  * Initialize a libventrilo3 handle for a server connection.
