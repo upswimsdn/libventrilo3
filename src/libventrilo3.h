@@ -81,7 +81,7 @@ struct v3_connection {
     int                 loggedin;
     int                 sockd;
 
-    int                 master_volume;
+    int                 volume;
 
     void *              speex_encoder;
     gsm_handle          gsm_encoder;

@@ -44,7 +44,7 @@
 typedef struct v3_codec {
     uint8_t codec;
     uint8_t format;
-    uint32_t samplesize;
+    uint32_t framesize;
     uint32_t rate;
     uint8_t quality;
     char name[128];
@@ -75,6 +75,8 @@ typedef struct v3_user {
 
     void *      speex_decoder;
     gsm_handle  gsm_decoder;
+
+    uint16_t    volume;
 
     void *      next;
 } v3_user;
