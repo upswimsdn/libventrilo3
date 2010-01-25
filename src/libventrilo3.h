@@ -37,6 +37,17 @@
 #define V3_CONN_MAX 64
 
 struct v3_connection {
+    pthread_mutext_t *  mutex;
+
+    uint32_t            ip;
+    uint16_t            port;
+    uint16_t            max_clients;
+    uint16_t            connected_clients;
+
+    char                name[32];
+    char                version[16];
+    char                os[32];
+
     v3_user *           luser;
     v3_user *           lperms;
     v3_user *           users;
@@ -44,19 +55,29 @@ struct v3_connection {
     v3_rank *           ranks;
     v3_account *        accounts;
 
-    pthread_mutext_t *  mutex;
+    char                motd[8193];
+    char                guest_motd[8193];
 
-    ventrilo_key_ctx *  encryptionkey;
+    uint8_t             auth_server_index;
+    ventrilo_key_ctx *  server_key;
+    ventrilo_key_ctx *  client_key;
+    char *              handshake_key;
+    char *              handshake;
 
+    int                 ev_recvq_pipe[2];
+    FILE *              ev_recvq_instream;
+    FILE *              ev_recvq_outstream;
     v3_event *          ev_recvq;
     pthread_mutext_t *  ev_recvq_mutex;
     pthread_cond_t *    ev_recvq_cond;
 
+    int                 ev_sendq_pipe[2];
+    FILE *              ev_sendq_instream;
+    FILE *              ev_sendq_outstream;
     v3_event *          ev_sendq;
     pthread_mutext_t *  ev_sendq_mutex;
     pthread_cond_t *    ev_sendq_cond;
 
-    int                 debuglevel;
     int                 loggedin;
     int                 sockd;
 
@@ -64,6 +85,14 @@ struct v3_connection {
 
     void *              speex_encoder;
     gsm_handle          gsm_encoder;
+
+    uint32_t            recv_pkt_count;
+    uint32_t            send_pkt_count;
+    uint32_t            recv_byte_count;
+    uint32_t            send_byte_count;
+
+    int16_t             codec_id;
+    int16_t             codec_format;
 };
 
 typedef struct v3_connection v3_connection;

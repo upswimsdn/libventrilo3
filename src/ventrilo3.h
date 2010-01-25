@@ -67,12 +67,14 @@ typedef struct v3_user {
     uint8_t     accept_u2u;
     uint8_t     accept_chat;
     uint8_t     allow_recording;
-    uint16_t    phantom_owner;
 
     uint8_t     is_global_muted;
     uint8_t     is_transmitting;
     uint8_t     is_guest;
-    uint8_t     is_phantom;
+    uint16_t    phantom_owner;
+
+    void *      speex_decoder;
+    gsm_handle  gsm_decoder;
 
     void *      next;
 } v3_user;
