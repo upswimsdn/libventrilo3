@@ -34,40 +34,41 @@
 #include <pthread.h>
 #undef __USE_UNIX98
 
-typedef struct v3_handle {
-    v3_user *luser;
-    v3_user *lperms;
-    v3_user *users;
-    v3_channel *channels;
-    v3_rank *ranks;
-    v3_account *accounts;
+#define V3_CONN_MAX 64
 
-    pthread_mutext_t *luser_mutex;
-    pthread_mutext_t *lperms_mutex;
-    pthread_mutext_t *users_mutex;
-    pthread_mutext_t *channels_mutex;
-    pthread_mutext_t *ranks_mutex;
-    pthread_mutext_t *accounts_mutex;
+struct v3_connection {
+    v3_user *           luser;
+    v3_user *           lperms;
+    v3_user *           users;
+    v3_channel *        channels;
+    v3_rank *           ranks;
+    v3_account *        accounts;
 
-    ventrilo_key_ctx *encryptionkey;
+    pthread_mutext_t *  mutex;
 
-    v3_event *ev_recvq;
-    pthread_mutext_t *ev_recvq_mutex;
-    pthread_cond_t *ev_recvq_cond;
+    ventrilo_key_ctx *  encryptionkey;
 
-    v3_event *ev_sendq;
-    pthread_mutext_t *ev_sendq_mutex;
-    pthread_cond_t *ev_sendq_cond;
+    v3_event *          ev_recvq;
+    pthread_mutext_t *  ev_recvq_mutex;
+    pthread_cond_t *    ev_recvq_cond;
 
-    int debuglevel;
-    int loggedin;
-    int sockd;
+    v3_event *          ev_sendq;
+    pthread_mutext_t *  ev_sendq_mutex;
+    pthread_cond_t *    ev_sendq_cond;
 
-    int master_volume;
+    int                 debuglevel;
+    int                 loggedin;
+    int                 sockd;
 
-    void *speex_encoder;
-    gsm_handle gsm_encoder;
-} v3_handle;
+    int                 master_volume;
+
+    void *              speex_encoder;
+    gsm_handle          gsm_encoder;
+};
+
+typedef struct v3_connection v3_connection;
+
+v3_connection v3_handles[V3_CONN_MAX];
 
 #endif // _LIBVENTRILO3_H
 

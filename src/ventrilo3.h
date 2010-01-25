@@ -24,6 +24,115 @@
  * along with Mangler.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define V3_NONE     0
+#define V3_CRITICAL 1
+#define V3_WARN     2
+#define V3_NOTICE   3
+#define V3_INFO     4
+#define V3_DEBUG    5
+
+#define V3_DBG_NONE     0
+#define V3_DBG_SOCKET   1
+#define V3_DBG_PACKET   1 << 1
+#define V3_DBG_MUTEX    1 << 2
+#define V3_DBG_STACK    1 << 3
+#define V3_DBG_STATUS   1 << 4
+#define V3_DBG_EVENT    1 << 5
+#define V3_DBG_MEM      1 << 6
+#define V3_DBG_ALL      65535
+
+typedef struct v3_codec {
+    uint8_t codec;
+    uint8_t format;
+    uint32_t samplesize;
+    uint32_t rate;
+    uint8_t quality;
+    char name[128];
+} v3_codec;
+extern const v3_codec v3_codecs[];
+
+typedef struct v3_user {
+    uint16_t    id;
+    uint16_t    channel;
+
+    uint16_t    bitfield;
+    uint16_t    rank_id;    
+    char        name[32];
+    char        phonetic[32];
+    char        comment[128];
+    char        url[128];
+    char        integration_text[128];
+
+    uint8_t     accept_pages;
+    uint8_t     accept_u2u;
+    uint8_t     accept_chat;
+    uint8_t     allow_recording;
+    uint16_t    phantom_owner;
+
+    uint8_t     is_global_muted;
+    uint8_t     is_transmitting;
+    uint8_t     is_guest;
+    uint8_t     is_phantom;
+
+    void *      next;
+} v3_user;
+
+typedef struct v3_channel {
+    uint16_t    id;
+    uint16_t    parent;
+    uint8_t     unknown_1;
+    uint8_t     password_protected;
+    uint16_t    unknown_2;
+    uint16_t    allow_recording;
+    uint16_t    allow_cross_channel_transmit;
+    uint16_t    allow_paging;
+    uint16_t    allow_wave_file_binds;
+    uint16_t    allow_tts_binds;
+    uint16_t    allow_u2u_transmit;
+    uint16_t    disable_guest_transmit;
+    uint16_t    disable_sound_events;
+    uint16_t    voice_mode;
+    uint16_t    transmit_time_limit;
+    uint16_t    allow_phantoms;
+    uint16_t    max_clients;
+    uint16_t    allow_guests;
+    uint16_t    inactive_exempt;
+    uint16_t    protect_mode;
+    uint16_t    transmit_rank_level;
+    uint16_t    channel_codec;
+    uint16_t    channel_format;
+    uint16_t    allow_voice_target;
+    uint16_t    allow_command_target;
+    char        name[32];
+    char        phonetic[32];
+    char        comment[128];
+
+    void *      next;
+} v3_channel;
+
+typedef struct v3_rank {
+    uint16_t    id;
+    uint16_t    level;
+    char        name[16];
+    char        description[64];
+
+    void *      next;
+} v3_rank;
+
+typedef struct v3_account {
+    v3_perms    perms;
+    char        username[32];
+    char        owner[32];
+    char        notes[256];
+    char        lock_reason[128];
+    int         chan_admin_count;
+    uint16_t    chan_admin[32];
+    int         chan_auth_count;
+    uint16_t    chan_auth[32];
+
+    void     *next;
+} v3_account;
+
 /*
  * Functions to initialize a connection and perform mainloop processing
  */
