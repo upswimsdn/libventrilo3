@@ -42,8 +42,8 @@
 #define V3_DBG_ALL      65535
 
 typedef struct v3_codec {
-    uint8_t codec;
-    uint8_t format;
+    int8_t id;
+    int8_t format;
     uint32_t framesize;
     uint32_t rate;
     uint8_t quality;
