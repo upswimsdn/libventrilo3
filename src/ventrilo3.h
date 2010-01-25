@@ -15,13 +15,13 @@
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Mangler is distributed in the hope that it will be useful,
+ * libventrilo3 is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Mangler.  If not, see <http://www.gnu.org/licenses/>.
+ * along with libventrilo3.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #define V3_NONE     0
@@ -42,12 +42,12 @@
 #define V3_DBG_ALL      65535
 
 typedef struct v3_codec {
-    int8_t id;
-    int8_t format;
-    uint32_t framesize;
-    uint32_t rate;
-    uint8_t quality;
-    char name[128];
+    int8_t      id;
+    int8_t      format;
+    uint32_t    framesize;
+    uint32_t    rate;
+    uint8_t     quality;
+    char        name[128];
 } v3_codec;
 extern const v3_codec v3_codecs[];
 
@@ -73,8 +73,8 @@ typedef struct v3_user {
     uint8_t     is_guest;
     uint16_t    phantom_owner;
 
+    void *      gsm_decoder;
     void *      speex_decoder;
-    gsm_handle  gsm_decoder;
 
     uint16_t    volume;
 
@@ -255,3 +255,4 @@ void            v3_account_changeowner(v3_handle v3h, int32_t accountid, int32_t
 void            v3_channel_add(v3_handle v3h, int32_t id, v3_channel *channel);
 void            v3_channel_update(v3_handle v3h, int32_t id, v3_channel *channel);
 void            v3_channel_remove(v3_handle v3h, int32_t id);
+

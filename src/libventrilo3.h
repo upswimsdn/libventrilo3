@@ -15,19 +15,20 @@
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Mangler is distributed in the hope that it will be useful,
+ * libventrilo3 is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Mangler.  If not, see <http://www.gnu.org/licenses/>.
+ * along with libventrilo3.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef _LIBVENTRILO3_H
 #define _LIBVENTRILO3_H
 
 #include "config.h"
+#include <stdio.h>
 #include <stdint.h>
 
 #define __USE_UNIX98
@@ -37,7 +38,7 @@
 #define V3_CONN_MAX 64
 
 struct v3_connection {
-    pthread_mutext_t *  mutex;
+    pthread_mutex_t *   mutex;
 
     uint32_t            ip;
     uint16_t            port;
@@ -68,14 +69,14 @@ struct v3_connection {
     FILE *              ev_recvq_instream;
     FILE *              ev_recvq_outstream;
     v3_event *          ev_recvq;
-    pthread_mutext_t *  ev_recvq_mutex;
+    pthread_mutex_t *   ev_recvq_mutex;
     pthread_cond_t *    ev_recvq_cond;
 
     int                 ev_sendq_pipe[2];
     FILE *              ev_sendq_instream;
     FILE *              ev_sendq_outstream;
     v3_event *          ev_sendq;
-    pthread_mutext_t *  ev_sendq_mutex;
+    pthread_mutex_t *   ev_sendq_mutex;
     pthread_cond_t *    ev_sendq_cond;
 
     int                 loggedin;
@@ -83,8 +84,8 @@ struct v3_connection {
 
     int                 volume;
 
+    void *              gsm_encoder;
     void *              speex_encoder;
-    gsm_handle          gsm_encoder;
 
     uint32_t            recv_pkt_count;
     uint32_t            send_pkt_count;
