@@ -24,6 +24,11 @@
  * along with libventrilo3.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef _VENTRILO3_H
+#define _VENTRILO3_H
+
+#include <stdint.h>
+
 #define V3_NONE     0
 #define V3_CRITICAL 1
 #define V3_WARN     2
@@ -123,6 +128,77 @@ typedef struct v3_rank {
     void *      next;
 } v3_rank;
 
+typedef struct v3_perms {
+    uint16_t account_id;
+    uint16_t replace_owner_id;
+    uint8_t hash_password[32];
+    uint16_t rank_id;
+    uint16_t unknown_perm_1;
+    uint8_t lock_acct;
+    uint8_t in_reserve_list;
+    uint8_t dupe_ip;
+    uint8_t switch_chan;
+    uint16_t dfl_chan;
+    uint8_t unknown_perm_2;
+    uint8_t unknown_perm_3;
+    uint8_t recv_bcast;
+    uint8_t add_phantom;
+    uint8_t record;
+    uint8_t recv_complaint;
+    uint8_t send_complaint;
+    uint8_t inactive_exempt;
+    uint8_t unknown_perm_4;
+    uint8_t unknown_perm_5;
+    uint8_t srv_admin;
+    uint8_t add_user;
+    uint8_t del_user;
+    uint8_t ban_user;
+    uint8_t kick_user;
+    uint8_t move_user;
+    uint8_t assign_chan_admin;
+    uint8_t edit_rank;
+    uint8_t edit_motd;
+    uint8_t edit_guest_motd;
+    uint8_t issue_rcon_cmd;
+    uint8_t edit_voice_target;
+    uint8_t edit_command_target;
+    uint8_t assign_rank;
+    uint8_t assign_reserved;
+    uint8_t unknown_perm_6;
+    uint8_t unknown_perm_7;
+    uint8_t unknown_perm_8;
+    uint8_t unknown_perm_9;
+    uint8_t unknown_perm_10;
+    uint8_t bcast;
+    uint8_t bcast_lobby;
+    uint8_t bcast_user;
+    uint8_t bcast_x_chan;
+    uint8_t send_tts_bind;
+    uint8_t send_wav_bind;
+    uint8_t send_page;
+    uint8_t send_comment;
+    uint8_t set_phon_name;
+    uint8_t gen_comment_snds;
+    uint8_t event_snds;
+    uint8_t mute_glbl;
+    uint8_t mute_other;
+    uint8_t glbl_chat; 
+    uint8_t start_priv_chat; 
+    uint8_t unknown_perm_11; 
+    uint8_t eq_out; 
+    uint8_t unknown_perm_12; 
+    uint8_t unknown_perm_13; 
+    uint8_t unknown_perm_14; 
+    uint8_t see_guest; 
+    uint8_t see_nonguest; 
+    uint8_t see_motd; 
+    uint8_t see_srv_comment; 
+    uint8_t see_chan_list; 
+    uint8_t see_chan_comment; 
+    uint8_t see_user_comment; 
+    uint8_t unknown_perm_15; 
+} v3_perms;
+
 typedef struct v3_account {
     v3_perms    perms;
     char        username[32];
@@ -136,6 +212,18 @@ typedef struct v3_account {
 
     void     *next;
 } v3_account;
+
+typedef struct v3_event {
+} v3_event;
+
+typedef struct {
+    uint8_t     key[256];
+    uint32_t    pos;
+    uint32_t    size;
+} ventrilo_key_ctx;
+
+
+typedef int16_t v3_handle;
 
 /*
  * Functions to initialize a connection and perform mainloop processing
@@ -178,7 +266,7 @@ int32_t         v3_free_rank(v3_rank *rank);
 v3_account *    get_account(v3_handle v3h, int32_t id);
 int32_t         v3_free_account(v3_account *account);
 
-const v3_perms *v3_get_permissions(v3_handle v3h, void);
+const v3_perms *v3_get_permissions(v3_handle v3h);
 const v3_codec *v3_get_channel_codec(v3_handle v3h, int32_t id);
 
 int32_t         v3_channel_requires_password(v3_handle v3h, int32_t id);
@@ -226,7 +314,7 @@ void            v3_send_privchat_back(v3_handle v3h, int32_t id);
 
 void            v3_change_channel(v3_handle v3h, int32_t id, char *password);
 
-void            v3_start_audio(v3_handle v3h, int32_t send type, int32_t dest);
+void            v3_start_audio(v3_handle v3h, int32_t send_type, int32_t dest);
 void            v3_send_audio(v3_handle v3h, int32_t send_type, int32_t dest, uint32_t rate, uint8_t *pcm, uint32_t length);
 void            v3_stop_audio(v3_handle v3h);
 
@@ -256,3 +344,4 @@ void            v3_channel_add(v3_handle v3h, int32_t id, v3_channel *channel);
 void            v3_channel_update(v3_handle v3h, int32_t id, v3_channel *channel);
 void            v3_channel_remove(v3_handle v3h, int32_t id);
 
+#endif // _VENTRILO3_H

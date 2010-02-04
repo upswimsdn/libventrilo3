@@ -31,13 +31,15 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "ventrilo3.h"
+
 #define __USE_UNIX98
 #include <pthread.h>
 #undef __USE_UNIX98
 
 #define V3_CONN_MAX 64
 
-struct v3_connection {
+typedef struct _v3_connection {
     pthread_mutex_t *   mutex;
 
     uint32_t            ip;
@@ -94,11 +96,19 @@ struct v3_connection {
 
     int16_t             codec_id;
     int16_t             codec_format;
-};
+} _v3_connection;
 
-typedef struct v3_connection v3_connection;
+typedef struct _v3_net_message {
+    uint16_t len;
+    uint16_t type;
+    char *data;
+    void *contents;
+    int (* destroy)(struct __v3_net_message *msg);
+    struct __v3_net_message *next;
+} _v3_net_message;
 
-v3_connection v3_handles[V3_CONN_MAX];
+
+_v3_connection _v3_handles[V3_CONN_MAX];
 
 #endif // _LIBVENTRILO3_H
 

@@ -30,8 +30,8 @@
  * Initialize a libventrilo3 handle for a server connection.
  * @return A pointer to a v3_handle for performing operations on a server
  */
-v3_handle *v3_init(void) {
-    return NULL;
+v3_handle       v3_init(char *server, char *username) {
+    return -1;
 }
 
 
