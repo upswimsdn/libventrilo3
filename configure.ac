@@ -84,7 +84,8 @@ AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([dup2 gettimeofday inet_ntoa memset select socket strchr strdup strerror gethostbyname_r])
 
-AC_CONFIG_FILES([src/Makefile
-                 Makefile])
+AC_CONFIG_FILES([Makefile
+		 src/Makefile
+		 examples/Makefile])
 
 AC_OUTPUT
