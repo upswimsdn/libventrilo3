@@ -73,9 +73,12 @@ LTLIBRARIES = $(lib_LTLIBRARIES)
 am__DEPENDENCIES_1 =
 libventrilo3_la_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_libventrilo3_la_OBJECTS = libventrilo3.lo account.lo channel.lo \
-	codec.lo dsp.lo handshake.lo libventrilo3.lo message.lo \
-	msgparse.lo network.lo rank.lo user.lo
+	codec.lo dsp.lo handshake.lo message.lo network.lo rank.lo \
+	user.lo
 libventrilo3_la_OBJECTS = $(am_libventrilo3_la_OBJECTS)
+libventrilo3_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(libventrilo3_la_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -222,9 +225,9 @@ top_srcdir = @top_srcdir@
 ACLOCAL_AMFLAGS = -I m4
 lib_LTLIBRARIES = libventrilo3.la
 libventrilo3_la_SOURCES = libventrilo3.c  account.c channel.c codec.c dsp.c \
-	handshake.c libventrilo3.c message.c msgparse.c network.c rank.c \
-	user.c
+	handshake.c message.c network.c rank.c user.c
 
+libventrilo3_la_LDFLAGS = -version-info 1:0:0
 libventrilo3_la_LIBADD = $(speex_LIBS) $(gsm_LIBS) -lm
 all: all-am
 
@@ -292,7 +295,7 @@ clean-libLTLIBRARIES:
 	  rm -f "$${dir}/so_locations"; \
 	done
 libventrilo3.la: $(libventrilo3_la_OBJECTS) $(libventrilo3_la_DEPENDENCIES) 
-	$(LINK) -rpath $(libdir) $(libventrilo3_la_OBJECTS) $(libventrilo3_la_LIBADD) $(LIBS)
+	$(libventrilo3_la_LINK) -rpath $(libdir) $(libventrilo3_la_OBJECTS) $(libventrilo3_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -307,7 +310,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/handshake.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libventrilo3.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/message.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/msgparse.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/network.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rank.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/user.Plo@am__quote@

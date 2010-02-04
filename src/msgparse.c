@@ -129,7 +129,7 @@ _v3_put_msg_string(void *buffer, char *string) {/*{{{*/
 }/*}}}*/
 
 int
-_v3_get_msg_channel(void *offset, _v3_msg_channel *channel) {/*{{{*/
+_v3_get_msg_channel(void *offset, v3_channel *channel) {/*{{{*/
     uint16_t len;
     void *start_offset = offset;
 
@@ -149,7 +149,7 @@ _v3_get_msg_channel(void *offset, _v3_msg_channel *channel) {/*{{{*/
 }/*}}}*/
 
 int
-_v3_get_msg_user(void *offset, _v3_msg_user *user) {/*{{{*/
+_v3_get_msg_user(void *offset, v3_user *user) {/*{{{*/
     uint16_t len;
     void *start_offset = offset;
 
@@ -173,7 +173,7 @@ _v3_get_msg_user(void *offset, _v3_msg_user *user) {/*{{{*/
 }/*}}}*/
 
 int
-_v3_get_msg_rank(void *offset, _v3_msg_rank *rank) {/*{{{*/
+_v3_get_msg_rank(void *offset, v3_rank *rank) {/*{{{*/
     uint16_t len;
     void *start_offset = offset;
 
@@ -191,7 +191,7 @@ _v3_get_msg_rank(void *offset, _v3_msg_rank *rank) {/*{{{*/
 }/*}}}*/
 
 int
-_v3_get_msg_account(void *offset, _v3_msg_account *account) {/*{{{*/
+_v3_get_msg_account(void *offset, v3_account *account) {/*{{{*/
     void *start_offset = offset;
     uint16_t len;
     int j;
@@ -371,15 +371,15 @@ _v3_get_0x36(_v3_net_message *msg) {/*{{{*/
     //_v3_debug(V3_DEBUG_PACKET_PARSE, "packet contains %d ranks.  message subtype %02X", m->rank_count, m->subtype);
     //_v3_debug(V3_DEBUG_PACKET_PARSE, "allocating %d bytes for ranklist packet", sizeof(_v3_msg_0x36));
     m = realloc(m, sizeof(_v3_msg_0x36));
-    //_v3_debug(V3_DEBUG_PACKET_PARSE, "allocating %d bytes (%d ranks * %d bytes)", m->rank_count*sizeof(_v3_msg_rank), m->rank_count, sizeof(_v3_msg_rank));
-    m->rank_list = calloc(m->rank_count, sizeof(_v3_msg_rank));
+    //_v3_debug(V3_DEBUG_PACKET_PARSE, "allocating %d bytes (%d ranks * %d bytes)", m->rank_count*sizeof(v3_rank), m->rank_count, sizeof(v3_rank));
+    m->rank_list = calloc(m->rank_count, sizeof(v3_rank));
     for (ctr = 0, offset = msg->data + 16; ctr < m->rank_count; ctr++) {
         offset += _v3_get_msg_rank(offset, &m->rank_list[ctr]);
         //_v3_debug(V3_DEBUG_PACKET_PARSE, "got rank: id: %d | name: %s | description: %s",
-                m->rank_list[ctr].id,
-                m->rank_list[ctr].name,
-                m->rank_list[ctr].description
-                );
+        //        m->rank_list[ctr].id,
+        //        m->rank_list[ctr].name,
+        //        m->rank_list[ctr].description
+        //        );
 
     }
     msg->contents = m;
@@ -676,7 +676,7 @@ _v3_put_0x48(void) {/*{{{*/
 /*}}}*/
 // Message 0x49 (73) | GET/REQUEST CHANNEL LIST MODIFICATION /*{{{*/
 _v3_net_message *
-_v3_put_0x49(uint16_t subtype, uint16_t user_id, char *channel_password, _v3_msg_channel *channel) {/*{{{*/
+_v3_put_0x49(uint16_t subtype, uint16_t user_id, char *channel_password, v3_channel *channel) {/*{{{*/
     _v3_net_message *msg;
     struct _v3_net_message_0x49 *msgdata;
     void *offset;
@@ -691,10 +691,10 @@ _v3_put_0x49(uint16_t subtype, uint16_t user_id, char *channel_password, _v3_msg
 
             // this is a standard channel packet minus the pointer bytes for
             // the name, comment, and phonetic
-            msg->len = sizeof(_v3_msg_0x49)-sizeof(void *)+sizeof(_v3_msg_channel) - sizeof(void *) * 4;
+            msg->len = sizeof(_v3_msg_0x49)-sizeof(void *)+sizeof(v3_channel) - sizeof(void *) * 4;
             //_v3_debug(V3_DEBUG_PACKET_PARSE, "allocating %d bytes", msg->len);
-            msgdata = malloc(sizeof(_v3_msg_0x49)-sizeof(void *)+sizeof(_v3_msg_channel));
-            memset(msgdata, 0, sizeof(_v3_msg_0x49)-sizeof(void *)+sizeof(_v3_msg_channel));
+            msgdata = malloc(sizeof(_v3_msg_0x49)-sizeof(void *)+sizeof(v3_channel));
+            memset(msgdata, 0, sizeof(_v3_msg_0x49)-sizeof(void *)+sizeof(v3_channel));
             msgdata->type = msg->type;
             msgdata->subtype = V3_CHANGE_CHANNEL;
             msgdata->user_id = user_id;
@@ -702,7 +702,7 @@ _v3_put_0x49(uint16_t subtype, uint16_t user_id, char *channel_password, _v3_msg
                 _v3_hash_password((uint8_t *)channel_password, (uint8_t *)msgdata->hash_password);
             }
             offset = (void*)((char *)msgdata + sizeof(_v3_msg_0x49)-sizeof(void *));
-            memcpy(offset, channel, sizeof(_v3_msg_channel));
+            memcpy(offset, channel, sizeof(v3_channel));
             msg->data = (char *)msgdata;
             _v3_func_leave("_v3_put_0x49");
             return(msg);
@@ -1501,8 +1501,8 @@ _v3_get_0x5d(_v3_net_message *msg) {/*{{{*/
     //_v3_debug(V3_DEBUG_PACKET_PARSE, "packet contains %d users.  message subtype %02X", m->user_count, m->subtype);
     //_v3_debug(V3_DEBUG_PACKET_PARSE, "allocating %d bytes for userlist packet", sizeof(_v3_msg_0x5d));
     m = realloc(m, sizeof(_v3_msg_0x5d));
-    //_v3_debug(V3_DEBUG_PACKET_PARSE, "allocating %d bytes (%d users * %d bytes)", m->user_count*sizeof(_v3_msg_user), m->user_count, sizeof(_v3_msg_user));
-    m->user_list = calloc(m->user_count, sizeof(_v3_msg_user));
+    //_v3_debug(V3_DEBUG_PACKET_PARSE, "allocating %d bytes (%d users * %d bytes)", m->user_count*sizeof(v3_user), m->user_count, sizeof(v3_user));
+    m->user_list = calloc(m->user_count, sizeof(v3_user));
     for (ctr = 0, offset = msg->data + 8; ctr < m->user_count; ctr++) {
         offset += _v3_get_msg_user(offset, &m->user_list[ctr]);
         //_v3_debug(V3_DEBUG_PACKET_PARSE, "got user: id              : %d", m->user_list[ctr].id);
@@ -1582,8 +1582,8 @@ _v3_get_0x60(_v3_net_message *msg) {/*{{{*/
     _v3_func_enter("_v3_get_0x60");
     m = malloc(sizeof(_v3_msg_0x60));
     memcpy(m, msg->data, 8);
-    //_v3_debug(V3_DEBUG_PACKET_PARSE, "server has %d channels, allocating %d bytes", m->channel_count, m->channel_count * sizeof(_v3_msg_channel));
-    m->channel_list = calloc(m->channel_count, sizeof(_v3_msg_channel));
+    //_v3_debug(V3_DEBUG_PACKET_PARSE, "server has %d channels, allocating %d bytes", m->channel_count, m->channel_count * sizeof(v3_channel));
+    m->channel_list = calloc(m->channel_count, sizeof(v3_channel));
     for (ctr = 0, offset = msg->data + 8;ctr < m->channel_count; ctr++) {
         offset += _v3_get_msg_channel(offset, &m->channel_list[ctr]);
         //_v3_debug(V3_DEBUG_PACKET_PARSE, "got channel: id: %d | name: %s | phonetic: %s | comment: %s",
