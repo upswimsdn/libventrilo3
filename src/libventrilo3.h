@@ -27,19 +27,24 @@
 #ifndef _LIBVENTRILO3_H
 #define _LIBVENTRILO3_H
 
-#include "config.h"
-#include <stdio.h>
-#include <stdint.h>
-
 #include "ventrilo3.h"
 
-#define __USE_UNIX98
-#include <pthread.h>
-#undef __USE_UNIX98
+#define V3_MAX_CONN 64
 
-#define V3_CONN_MAX 64
+typedef struct _v3_connection   _v3_connection;
+typedef struct _v3_message      _v3_message;
 
-typedef struct _v3_connection {
+pthread_mutex_t _v3_handles_mutex        = PTHREAD_MUTEX_INITIALIZER;
+_v3_connection *_v3_handles[V3_MAX_CONN] = { NULL };
+
+uint16_t _debug      = V3_DBG_NONE;
+char     _error[256] = "";
+
+struct _v3_connection {
+    uint16_t            stack;
+    uint16_t            debug;
+    char                error[256];
+
     pthread_mutex_t *   mutex;
 
     uint32_t            ip;
@@ -47,19 +52,24 @@ typedef struct _v3_connection {
     uint16_t            max_clients;
     uint16_t            connected_clients;
 
+    struct {
+        uint8_t         major;
+        uint8_t         minor;
+    } protocol;
+
     char                name[32];
     char                version[16];
-    char                os[32];
+    char                platform[32];
 
-    v3_user *           luser;
-    v3_user *           lperms;
+    v3_user             luser;
+    v3_user             lperms;
     v3_user *           users;
     v3_channel *        channels;
     v3_rank *           ranks;
     v3_account *        accounts;
 
-    char                motd[8193];
-    char                guest_motd[8193];
+    char                motd[32768];
+    char                guest_motd[32768];
 
     uint8_t             auth_server_index;
     ventrilo_key_ctx *  server_key;
@@ -68,15 +78,11 @@ typedef struct _v3_connection {
     char *              handshake;
 
     int                 ev_recvq_pipe[2];
-    FILE *              ev_recvq_instream;
-    FILE *              ev_recvq_outstream;
     v3_event *          ev_recvq;
     pthread_mutex_t *   ev_recvq_mutex;
     pthread_cond_t *    ev_recvq_cond;
 
     int                 ev_sendq_pipe[2];
-    FILE *              ev_sendq_instream;
-    FILE *              ev_sendq_outstream;
     v3_event *          ev_sendq;
     pthread_mutex_t *   ev_sendq_mutex;
     pthread_cond_t *    ev_sendq_cond;
@@ -90,25 +96,29 @@ typedef struct _v3_connection {
     void *              speex_encoder;
 
     uint32_t            recv_pkt_count;
+    uint64_t            recv_byte_count;
     uint32_t            send_pkt_count;
-    uint32_t            recv_byte_count;
-    uint32_t            send_byte_count;
+    uint64_t            send_byte_count;
 
-    int16_t             codec_id;
+    int16_t             codec_index;
     int16_t             codec_format;
-} _v3_connection;
+};
 
-typedef struct _v3_net_message {
-    uint16_t len;
-    uint16_t type;
-    char *data;
-    void *contents;
-    int (* destroy)(struct __v3_net_message *msg);
-    struct __v3_net_message *next;
-} _v3_net_message;
+struct _v3_message {
+    uint16_t    len;
+    uint16_t    type;
+    void        *data;
+    void        *contents;
+    _v3_message *next;
+};
 
+int         _v3_check_handle(v3_handle v3h);
 
-_v3_connection _v3_handles[V3_CONN_MAX];
+void        _v3_debug(v3_handle v3h, int level, const char *format, ...);
+void        _v3_error(v3_handle v3h, const char *format, ...);
+
+int         _v3_parse_server_info(const char *server, uint32_t *ip, uint16_t *port);
+uint32_t    _v3_resolv(const char *hostname);
 
 #endif // _LIBVENTRILO3_H
 

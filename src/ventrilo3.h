@@ -28,23 +28,37 @@
 #define _VENTRILO3_H
 
 #include <stdint.h>
+#include <sys/time.h> /* struct timeval */
+
+#define V3_OK       0
+#define V3_FAILURE  1
+#define V3_MALFORM  2
+
+#define V3_BLOCK    1
+#define V3_NONBLOCK 0
 
 #define V3_NONE     0
 #define V3_CRITICAL 1
-#define V3_WARN     2
+#define V3_WARNING  2
 #define V3_NOTICE   3
 #define V3_INFO     4
 #define V3_DEBUG    5
 
 #define V3_DBG_NONE     0
-#define V3_DBG_SOCKET   1
-#define V3_DBG_PACKET   1 << 1
-#define V3_DBG_MUTEX    1 << 2
-#define V3_DBG_STACK    1 << 3
-#define V3_DBG_STATUS   1 << 4
-#define V3_DBG_EVENT    1 << 5
-#define V3_DBG_MEM      1 << 6
-#define V3_DBG_ALL      65535
+#define V3_DBG_ERROR    1
+#define V3_DBG_INFO     1 << 1
+#define V3_DBG_STATUS   1 << 2
+#define V3_DBG_EVENT    1 << 3
+#define V3_DBG_MESSAGE  1 << 4
+#define V3_DBG_PACKET   1 << 5
+#define V3_DBG_STACK    1 << 6
+#define V3_DBG_MUTEX    1 << 7
+#define V3_DBG_MEMORY   1 << 8
+#define V3_DBG_ALL      0xffff
+
+#define V3_HANDLE_NONE  (v3_handle)-1
+
+typedef int16_t v3_handle;
 
 typedef struct v3_codec {
     int8_t      id;
@@ -59,21 +73,22 @@ extern const v3_codec v3_codecs[];
 typedef struct v3_user {
     uint16_t    id;
     uint16_t    channel;
-
     uint16_t    bitfield;
-    uint16_t    rank_id;    
+    uint16_t    rank_id;
+
     char        name[32];
     char        phonetic[32];
     char        comment[128];
     char        url[128];
-    char        integration_text[128];
+    char        integration[128];
 
     uint8_t     accept_pages;
     uint8_t     accept_u2u;
     uint8_t     accept_chat;
     uint8_t     allow_recording;
 
-    uint8_t     is_global_muted;
+    uint8_t     is_global_mute;
+    uint8_t     is_channel_mute;
     uint8_t     is_transmitting;
     uint8_t     is_guest;
     uint16_t    phantom_owner;
@@ -210,7 +225,7 @@ typedef struct v3_account {
     int         chan_auth_count;
     uint16_t    chan_auth[32];
 
-    void     *next;
+    void *      next;
 } v3_account;
 
 typedef struct v3_event {
@@ -222,14 +237,18 @@ typedef struct {
     uint32_t    size;
 } ventrilo_key_ctx;
 
-
-typedef int16_t v3_handle;
+/*
+ * Debug functions
+ */
+int             v3_debug(v3_handle v3h, int level);
+const char *    v3_error(v3_handle v3h);
 
 /*
  * Functions to initialize a connection and perform mainloop processing
  */
-v3_handle       v3_init(char *server, char *username);
-v3_handle       v3_find_handle(char *server, char *username);
+v3_handle       v3_init(const char *server, const char *username);
+v3_handle       v3_find_handle(const char *server, const char *username);
+int             v3_destroy(v3_handle v3h);
 
 int32_t         v3_set_password(v3_handle v3h, char *password);
 int32_t         v3_set_phonetic(v3_handle v3h, char *phonetic);
@@ -241,15 +260,14 @@ int32_t         v3_login_cancel(v3_handle v3h);
 int32_t         v3_iterate(v3_handle v3h, int8_t block, struct timeval *tv);
 int32_t         v3_is_loggedin(v3_handle v3h);
 
-
 /*
  * Retreive server information
  */
 int32_t         v3_get_luser_id(v3_handle v3h);
 int32_t         v3_get_luser_channel(v3_handle v3h);
 int32_t         v3_get_max_clients(v3_handle v3h);
-uint32_t        v3_get_bytes_sent(v3_handle v3h);
-uint32_t        v3_get_bytes_recv(v3_handle v3h);
+uint64_t        v3_get_bytes_sent(v3_handle v3h);
+uint64_t        v3_get_bytes_recv(v3_handle v3h);
 uint32_t        v3_get_pkts_sent(v3_handle v3h);
 uint32_t        v3_get_pkts_recv(v3_handle v3h);
 
@@ -257,7 +275,7 @@ v3_user *       get_user(v3_handle v3h, int32_t id);
 int32_t         v3_free_user(v3_user *user);
 
 v3_channel *    get_channel(v3_handle v3h, int32_t id);
-char            *get_channel_path(v3_handle v3h, int32_t id, char *result, int size);
+char *          get_channel_path(v3_handle v3h, int32_t id, char *result, int size);
 int32_t         v3_free_channel(v3_channel *channel);
 
 v3_rank *       get_rank(v3_handle v3h, int32_t id);
@@ -314,34 +332,34 @@ void            v3_send_privchat_back(v3_handle v3h, int32_t id);
 
 void            v3_change_channel(v3_handle v3h, int32_t id, char *password);
 
-void            v3_start_audio(v3_handle v3h, int32_t send_type, int32_t dest);
-void            v3_send_audio(v3_handle v3h, int32_t send_type, int32_t dest, uint32_t rate, uint8_t *pcm, uint32_t length);
+void            v3_start_audio(v3_handle v3h, int32_t dest);
+void            v3_send_audio(v3_handle v3h, int32_t dest, uint32_t rate, uint8_t *pcm, uint32_t length);
 void            v3_stop_audio(v3_handle v3h);
 
 void            v3_phantom_add(v3_handle v3h, int32_t id);
 void            v3_phantom_remove(v3_handle v3h, int32_t id);
 
-void            v3_set_server_option(v3_handle v3h, uint8_t type, uint8_t value);
+void            v3_set_luser_option(v3_handle v3h, uint8_t type, uint8_t value);
 
 /*
  * Admin user functions
  */
-
 void            v3_admin_login(v3_handle v3h, char *password);
 void            v3_admin_logout(v3_handle v3h);
 
 void            v3_admin_boot(v3_handle v3h, int8_t type, int32_t id, char *reason);
 void            v3_force_move_user(v3_handle v3h, int32_t id, int32_t dest);
 
-void            v3_accountlist_open(v3_handle v3h);
-void            v3_accountlist_close(v3_handle v3h);
+void            v3_account_open(v3_handle v3h);
+void            v3_account_close(v3_handle v3h);
 void            v3_account_add(v3_handle v3h, v3_account *account);
 void            v3_account_update(v3_handle v3h, v3_account *account);
 void            v3_account_remove(v3_handle v3h, int32_t id);
-void            v3_account_changeowner(v3_handle v3h, int32_t accountid, int32_t ownerid);
+void            v3_account_change_owner(v3_handle v3h, int32_t accountid, int32_t ownerid);
 
 void            v3_channel_add(v3_handle v3h, int32_t id, v3_channel *channel);
 void            v3_channel_update(v3_handle v3h, int32_t id, v3_channel *channel);
 void            v3_channel_remove(v3_handle v3h, int32_t id);
 
 #endif // _VENTRILO3_H
+

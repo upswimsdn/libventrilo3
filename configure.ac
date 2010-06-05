@@ -7,7 +7,7 @@ AC_INIT([libventrilo3], [1.0.0], [eric@ypass.net])
 LT_INIT
 AM_INIT_AUTOMAKE
 
-AM_MAINTAINER_MODE([enable])
+AM_MAINTAINER_MODE([disable])
 AC_SUBST([LIBTOOL_DEPS])
 
 AC_CONFIG_SRCDIR([config.h.in])
@@ -39,6 +39,7 @@ AC_CHECK_LIB([m], [tan], [], [
 
 AC_ARG_ENABLE(gsm,   [  --disable-gsm           disable GSM codec support],   [disable_gsm=yes])
 AC_ARG_ENABLE(speex, [  --disable-speex         disable Speex codec support], [disable_speex=yes])
+AC_ARG_ENABLE(celt,  [  --disable-celt          disable CELT codec support],  [disable_celt=yes])
 
 if test "$enable_gsm" != "no" ; then
 	AC_CHECK_LIB([gsm], [gsm_create], [], [
@@ -67,6 +68,15 @@ if test "$enable_speex" != "no" ; then
 	AC_DEFINE(HAVE_SPEEX, 1, [have speex])
 else
 	AC_DEFINE(HAVE_SPEEX, 0, [have speex])
+fi
+
+if test "$enable_celt" != "no" ; then
+	PKG_CHECK_MODULES(celt, celt = 0.7.1)
+	AC_SUBST(celt_CFLAGS)
+	AC_SUBST(celt_LIBS)
+	AC_DEFINE(HAVE_CELT, 1, [have celt])
+else
+	AC_DEFINE(HAVE_CELT, 0, [have celt])
 fi
 
 # Checks for typedefs, structures, and compiler characteristics.
