@@ -6,7 +6,7 @@
  * $LastChangedBy$
  * $URL$
  *
- * Copyright 2009-2010 Eric Kilfoil 
+ * Copyright 2009-2010 Eric Kilfoil
  *
  * This file is part of libventrilo3.
  *
@@ -46,12 +46,12 @@
 
 #define V3_DBG_NONE     0
 #define V3_DBG_ERROR    1
-#define V3_DBG_INFO     1 << 1
-#define V3_DBG_STATUS   1 << 2
-#define V3_DBG_EVENT    1 << 3
-#define V3_DBG_MESSAGE  1 << 4
-#define V3_DBG_PACKET   1 << 5
-#define V3_DBG_STACK    1 << 6
+#define V3_DBG_STACK    1 << 1
+#define V3_DBG_INFO     1 << 2
+#define V3_DBG_STATUS   1 << 3
+#define V3_DBG_EVENT    1 << 4
+#define V3_DBG_MESSAGE  1 << 5
+#define V3_DBG_PACKET   1 << 6
 #define V3_DBG_MUTEX    1 << 7
 #define V3_DBG_MEMORY   1 << 8
 #define V3_DBG_ALL      0xffff
@@ -231,12 +231,6 @@ typedef struct v3_account {
 typedef struct v3_event {
 } v3_event;
 
-typedef struct {
-    uint8_t     key[256];
-    uint32_t    pos;
-    uint32_t    size;
-} ventrilo_key_ctx;
-
 /*
  * Debug functions
  */
@@ -250,13 +244,13 @@ v3_handle       v3_init(const char *server, const char *username);
 v3_handle       v3_find_handle(const char *server, const char *username);
 int             v3_destroy(v3_handle v3h);
 
-int32_t         v3_set_password(v3_handle v3h, char *password);
-int32_t         v3_set_phonetic(v3_handle v3h, char *phonetic);
+int             v3_set_password(v3_handle v3h, const char *password);
+int             v3_set_phonetic(v3_handle v3h, const char *phonetic);
 int32_t         v3_set_default_channel_path(v3_handle v3h, char *path);
 int32_t         v3_set_default_channel_id(v3_handle v3h, int32_t id);
 
-int32_t         v3_login(v3_handle v3h);
-int32_t         v3_login_cancel(v3_handle v3h);
+int             v3_login(v3_handle v3h);
+int             v3_login_cancel(v3_handle v3h);
 int32_t         v3_iterate(v3_handle v3h, int8_t block, struct timeval *tv);
 int32_t         v3_is_loggedin(v3_handle v3h);
 
