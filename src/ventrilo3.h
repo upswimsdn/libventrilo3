@@ -30,9 +30,12 @@
 #include <stdint.h>
 #include <sys/time.h> /* struct timeval */
 
+#define PACK __attribute__ ((__packed__))
+
 #define V3_OK       0
 #define V3_FAILURE  1
 #define V3_MALFORM  2
+#define V3_NOTIMPL  3
 
 #define V3_BLOCK    1
 #define V3_NONBLOCK 0
@@ -45,63 +48,115 @@
 #define V3_DEBUG    5
 
 #define V3_DBG_NONE     0
-#define V3_DBG_ERROR    1
+#define V3_DBG_ERROR    1 << 0
 #define V3_DBG_STACK    1 << 1
 #define V3_DBG_INFO     1 << 2
-#define V3_DBG_STATUS   1 << 3
-#define V3_DBG_EVENT    1 << 4
-#define V3_DBG_MESSAGE  1 << 5
-#define V3_DBG_PACKET   1 << 6
-#define V3_DBG_MUTEX    1 << 7
-#define V3_DBG_MEMORY   1 << 8
+#define V3_DBG_SOCKET   1 << 3
+#define V3_DBG_STATUS   1 << 4
+#define V3_DBG_EVENT    1 << 5
+#define V3_DBG_MESSAGE  1 << 6
+#define V3_DBG_PACKET   1 << 7
+#define V3_DBG_MUTEX    1 << 8
+#define V3_DBG_MEMORY   1 << 9
 #define V3_DBG_ALL      0xffff
 
-#define V3_HANDLE_NONE  (v3_handle)-1
+#define V3_HANDLE_NONE  (-1)
 
-typedef int16_t v3_handle;
+typedef int16_t             v3_handle;
 
-typedef struct v3_codec {
-    int8_t      id;
+typedef struct v3_perm      v3_perm;
+typedef struct v3_codec     v3_codec;
+
+typedef struct v3_channel   v3_channel;
+typedef struct v3_rank      v3_rank;
+typedef struct v3_user      v3_user;
+typedef struct v3_account   v3_account;
+
+typedef struct v3_event     v3_event;
+
+struct v3_perm {
+    uint16_t    id;
+    uint16_t    replace_owner_id;
+    uint8_t     password[32];
+    uint16_t    rank_id;
+    uint16_t    unknown_perm_1;
+    uint8_t     lock_acct;
+    uint8_t     in_reserve_list;
+    uint8_t     dupe_ip;
+    uint8_t     switch_chan;
+    uint16_t    dfl_chan;
+    uint8_t     unknown_perm_2;
+    uint8_t     unknown_perm_3;
+    uint8_t     recv_bcast;
+    uint8_t     add_phantom;
+    uint8_t     record;
+    uint8_t     recv_complaint;
+    uint8_t     send_complaint;
+    uint8_t     inactive_exempt;
+    uint8_t     unknown_perm_4;
+    uint8_t     unknown_perm_5;
+    uint8_t     srv_admin;
+    uint8_t     add_user;
+    uint8_t     del_user;
+    uint8_t     ban_user;
+    uint8_t     kick_user;
+    uint8_t     move_user;
+    uint8_t     assign_chan_admin;
+    uint8_t     edit_rank;
+    uint8_t     edit_motd;
+    uint8_t     edit_guest_motd;
+    uint8_t     issue_rcon_cmd;
+    uint8_t     edit_voice_target;
+    uint8_t     edit_command_target;
+    uint8_t     assign_rank;
+    uint8_t     assign_reserved;
+    uint8_t     unknown_perm_6;
+    uint8_t     unknown_perm_7;
+    uint8_t     unknown_perm_8;
+    uint8_t     unknown_perm_9;
+    uint8_t     unknown_perm_10;
+    uint8_t     bcast;
+    uint8_t     bcast_lobby;
+    uint8_t     bcast_user;
+    uint8_t     bcast_x_chan;
+    uint8_t     send_tts_bind;
+    uint8_t     send_wav_bind;
+    uint8_t     send_page;
+    uint8_t     send_comment;
+    uint8_t     set_phon_name;
+    uint8_t     gen_comment_snds;
+    uint8_t     event_snds;
+    uint8_t     mute_glbl;
+    uint8_t     mute_other;
+    uint8_t     glbl_chat; 
+    uint8_t     start_priv_chat; 
+    uint8_t     unknown_perm_11; 
+    uint8_t     eq_out; 
+    uint8_t     unknown_perm_12; 
+    uint8_t     unknown_perm_13; 
+    uint8_t     unknown_perm_14; 
+    uint8_t     see_guest; 
+    uint8_t     see_nonguest; 
+    uint8_t     see_motd; 
+    uint8_t     see_srv_comment; 
+    uint8_t     see_chan_list; 
+    uint8_t     see_chan_comment; 
+    uint8_t     see_user_comment; 
+    uint8_t     unknown_perm_15; 
+} PACK;
+
+struct v3_codec {
+    int8_t      index;
     int8_t      format;
     uint32_t    framesize;
     uint32_t    rate;
-    uint8_t     quality;
+    int         quality;
     char        name[128];
-} v3_codec;
+};
+
 extern const v3_codec v3_codecs[];
 
-typedef struct v3_user {
-    uint16_t    id;
-    uint16_t    channel;
-    uint16_t    bitfield;
-    uint16_t    rank_id;
-
-    char        name[32];
-    char        phonetic[32];
-    char        comment[128];
-    char        url[128];
-    char        integration[128];
-
-    uint8_t     accept_pages;
-    uint8_t     accept_u2u;
-    uint8_t     accept_chat;
-    uint8_t     allow_recording;
-
-    uint8_t     is_global_mute;
-    uint8_t     is_channel_mute;
-    uint8_t     is_transmitting;
-    uint8_t     is_guest;
-    uint16_t    phantom_owner;
-
-    void *      gsm_decoder;
-    void *      speex_decoder;
-
-    uint16_t    volume;
-
-    void *      next;
-} v3_user;
-
-typedef struct v3_channel {
+struct v3_channel {
     uint16_t    id;
     uint16_t    parent;
     uint8_t     unknown_1;
@@ -123,99 +178,67 @@ typedef struct v3_channel {
     uint16_t    inactive_exempt;
     uint16_t    protect_mode;
     uint16_t    transmit_rank_level;
-    uint16_t    channel_codec;
-    uint16_t    channel_format;
+    uint16_t    codec_index;
+    uint16_t    codec_format;
     uint16_t    allow_voice_target;
     uint16_t    allow_command_target;
+
+    char        _internal_;
+
     char        name[32];
     char        phonetic[32];
     char        comment[128];
 
-    void *      next;
-} v3_channel;
+    v3_channel *next;
+} PACK;
 
-typedef struct v3_rank {
+struct v3_rank {
     uint16_t    id;
     uint16_t    level;
+
+    char        _internal_;
+
     char        name[16];
     char        description[64];
 
-    void *      next;
-} v3_rank;
+    v3_rank *   next;
+} PACK;
 
-typedef struct v3_perms {
-    uint16_t account_id;
-    uint16_t replace_owner_id;
-    uint8_t hash_password[32];
-    uint16_t rank_id;
-    uint16_t unknown_perm_1;
-    uint8_t lock_acct;
-    uint8_t in_reserve_list;
-    uint8_t dupe_ip;
-    uint8_t switch_chan;
-    uint16_t dfl_chan;
-    uint8_t unknown_perm_2;
-    uint8_t unknown_perm_3;
-    uint8_t recv_bcast;
-    uint8_t add_phantom;
-    uint8_t record;
-    uint8_t recv_complaint;
-    uint8_t send_complaint;
-    uint8_t inactive_exempt;
-    uint8_t unknown_perm_4;
-    uint8_t unknown_perm_5;
-    uint8_t srv_admin;
-    uint8_t add_user;
-    uint8_t del_user;
-    uint8_t ban_user;
-    uint8_t kick_user;
-    uint8_t move_user;
-    uint8_t assign_chan_admin;
-    uint8_t edit_rank;
-    uint8_t edit_motd;
-    uint8_t edit_guest_motd;
-    uint8_t issue_rcon_cmd;
-    uint8_t edit_voice_target;
-    uint8_t edit_command_target;
-    uint8_t assign_rank;
-    uint8_t assign_reserved;
-    uint8_t unknown_perm_6;
-    uint8_t unknown_perm_7;
-    uint8_t unknown_perm_8;
-    uint8_t unknown_perm_9;
-    uint8_t unknown_perm_10;
-    uint8_t bcast;
-    uint8_t bcast_lobby;
-    uint8_t bcast_user;
-    uint8_t bcast_x_chan;
-    uint8_t send_tts_bind;
-    uint8_t send_wav_bind;
-    uint8_t send_page;
-    uint8_t send_comment;
-    uint8_t set_phon_name;
-    uint8_t gen_comment_snds;
-    uint8_t event_snds;
-    uint8_t mute_glbl;
-    uint8_t mute_other;
-    uint8_t glbl_chat; 
-    uint8_t start_priv_chat; 
-    uint8_t unknown_perm_11; 
-    uint8_t eq_out; 
-    uint8_t unknown_perm_12; 
-    uint8_t unknown_perm_13; 
-    uint8_t unknown_perm_14; 
-    uint8_t see_guest; 
-    uint8_t see_nonguest; 
-    uint8_t see_motd; 
-    uint8_t see_srv_comment; 
-    uint8_t see_chan_list; 
-    uint8_t see_chan_comment; 
-    uint8_t see_user_comment; 
-    uint8_t unknown_perm_15; 
-} v3_perms;
+struct v3_user {
+    uint16_t    id;
+    uint16_t    channel;
+    uint16_t    flags;
+    uint16_t    rank_id;
 
-typedef struct v3_account {
-    v3_perms    perms;
+    char        _internal_;
+
+    char        name[32];
+    char        phonetic[32];
+    char        comment[128];
+    char        integration[128];
+    char        url[128];
+
+    uint8_t     accept_pages;
+    uint8_t     accept_u2u;
+    uint8_t     accept_chat;
+    uint8_t     allow_recording;
+
+    uint8_t     is_global_mute;
+    uint8_t     is_channel_mute;
+    uint8_t     is_transmitting;
+    uint8_t     is_guest;
+    uint16_t    phantom_owner;
+
+    void *      gsm_decoder;
+    void *      speex_decoder;
+
+    uint16_t    volume;
+
+    v3_user *   next;
+} PACK;
+
+struct v3_account {
+    v3_perm     perm;
     char        username[32];
     char        owner[32];
     char        notes[256];
@@ -225,11 +248,12 @@ typedef struct v3_account {
     int         chan_auth_count;
     uint16_t    chan_auth[32];
 
-    void *      next;
-} v3_account;
+    v3_account *next;
+};
 
-typedef struct v3_event {
-} v3_event;
+struct v3_event {
+
+};
 
 /*
  * Debug functions
@@ -251,7 +275,7 @@ int32_t         v3_set_default_channel_id(v3_handle v3h, int32_t id);
 
 int             v3_login(v3_handle v3h);
 int             v3_login_cancel(v3_handle v3h);
-int32_t         v3_iterate(v3_handle v3h, int8_t block, struct timeval *tv);
+int             v3_iterate(v3_handle v3h, uint8_t block/*, struct timeval *tv*/);
 int32_t         v3_is_loggedin(v3_handle v3h);
 
 /*
@@ -278,7 +302,7 @@ int32_t         v3_free_rank(v3_rank *rank);
 v3_account *    get_account(v3_handle v3h, int32_t id);
 int32_t         v3_free_account(v3_account *account);
 
-const v3_perms *v3_get_permissions(v3_handle v3h);
+const v3_perm * v3_get_permissions(v3_handle v3h);
 const v3_codec *v3_get_channel_codec(v3_handle v3h, int32_t id);
 
 int32_t         v3_channel_requires_password(v3_handle v3h, int32_t id);

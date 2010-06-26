@@ -53,17 +53,13 @@
 #define false   0
 #define true    1
 
-#include "account.c"
-#include "channel.c"
-#include "codec.c"
+#include "api.c"
+#include "data.c"
 #include "dsp.c"
 #include "encryption.c"
 #include "handshake.c"
 #include "message.c"
 #include "network.c"
-#include "rank.c"
-#include "user.c"
-#include "vrf.c"
 
 /*
  * Initialize a libventrilo3 handle for a server connection.
@@ -173,9 +169,14 @@ v3_destroy(v3_handle v3h) {
 
     _v3_mutex_lock(V3_HANDLE_NONE);
 
+    _v3_enter(v3h, func);
+
     _v3_close(v3h);
     _v3_mutex_destroy(v3h);
     _v3_debug(v3h, V3_DBG_INFO, "destroyed handle: %i", v3h);
+
+    _v3_leave(v3h, func);
+
     free(_v3_handles[v3h]);
     _v3_handles[v3h] = NULL;
 
@@ -191,16 +192,15 @@ v3_set_password(v3_handle v3h, const char *password) {
 
     _v3_connection *v3c;
 
-    _v3_enter(V3_HANDLE_NONE, func);
-
     if (_v3_handle_valid(v3h) != V3_OK) {
-        _v3_leave(V3_HANDLE_NONE, func);
         return V3_FAILURE;
     }
+    _v3_enter(v3h, func);
+
     v3c = _v3_handles[v3h];
     strncpy(v3c->password, password, sizeof(v3c->password) - 1);
 
-    _v3_leave(V3_HANDLE_NONE, func);
+    _v3_leave(v3h, func);
     return V3_OK;
 }
 
@@ -210,16 +210,15 @@ v3_set_phonetic(v3_handle v3h, const char *phonetic) {
 
     _v3_connection *v3c;
 
-    _v3_enter(V3_HANDLE_NONE, func);
-
     if (_v3_handle_valid(v3h) != V3_OK) {
-        _v3_leave(V3_HANDLE_NONE, func);
         return V3_FAILURE;
     }
+    _v3_enter(v3h, func);
+
     v3c = _v3_handles[v3h];
     strncpy(v3c->luser.phonetic, phonetic, sizeof(v3c->luser.phonetic) - 1);
 
-    _v3_leave(V3_HANDLE_NONE, func);
+    _v3_leave(v3h, func);
     return V3_OK;
 }
 
