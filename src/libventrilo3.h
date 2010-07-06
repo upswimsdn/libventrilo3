@@ -33,15 +33,13 @@
 #include <pthread.h>
 #undef __USE_UNIX98
 
-#define V3_CLIENT_VERSION "3.0.5"
-#define V3_PROTO_VERSION "3.0.0"
-
-#define V3_CLIENT_PLATFORM "WIN32"
+#define V3_CLIENT_PLATFORM  "WIN32"
+#define V3_CLIENT_VERSION   "3.0.5"
+#define V3_PROTO_VERSION    "3.0.0"
 
 #define V3_MAX_CONN 64
 
 typedef struct _v3_connection   _v3_connection;
-typedef struct _v3_message      _v3_message;
 typedef struct ventrilo_key_ctx ventrilo_key_ctx;
 
 pthread_mutex_t _v3_handles_mutex        = PTHREAD_MUTEX_INITIALIZER;
@@ -71,72 +69,126 @@ struct _v3_connection {
     uint8_t             handshake[16];
 
     char                password[32];
+    char                def_path[128];
+    uint16_t            def_id;
+
     v3_user             luser;
-    v3_perm             lperms;
+    v3_account          lacct;
 
     ventrilo_key_ctx *  client_key;
     ventrilo_key_ctx *  server_key;
 
     uint8_t             logged_in;
 
+    struct timeval      timestamp;
+
     struct {
         uint8_t         major;
         uint8_t         minor;
     } protocol;
 
+    uint16_t            licensed;
+    uint16_t            slots;
+    uint16_t            clients;
+
     char                name[32];
     char                platform[32];
     char                version[32];
-
-    uint16_t            max_clients;
-    uint16_t            connected_clients;
 
     v3_channel *        channels;
     v3_rank *           ranks;
     v3_user *           users;
     v3_account *        accounts;
 
+    v3_event *          eventq;
+    pthread_mutex_t *   event_mutex;
+    pthread_cond_t *    event_cond;
+
     char                motd[32768];
-    char                guest_motd[32768];
+    char                motd_guest[32768];
 
-    int                 ev_recvq_pipe[2];
-    v3_event *          ev_recvq;
-    pthread_mutex_t *   ev_recvq_mutex;
-    pthread_cond_t *    ev_recvq_cond;
+    v3_prop             prop;
+    uint16_t            transaction;
 
-    int                 ev_sendq_pipe[2];
-    v3_event *          ev_sendq;
-    pthread_mutex_t *   ev_sendq_mutex;
-    pthread_cond_t *    ev_sendq_cond;
-
-    int                 volume;
-
-    void *              gsm_encoder;
-    void *              speex_encoder;
-
-    uint32_t            recv_pkt_ctr;
+    uint64_t            sent_byte_ctr;
     uint64_t            recv_byte_ctr;
     uint32_t            sent_pkt_ctr;
-    uint64_t            sent_byte_ctr;
+    uint32_t            recv_pkt_ctr;
 
     uint16_t            codec_index;
     uint16_t            codec_format;
 };
 
-struct _v3_message {
+typedef struct {
     uint16_t    len;
     uint32_t    type;
     void *      data;
-    void *      contents;
-    _v3_message *next;
-};
+} _v3_message;
 
 /* data.c */
 enum {
-    V3_DATA_CHANNEL = 1,
-    V3_DATA_RANK,
-    V3_DATA_USER,
-    V3_DATA_ACCOUNT
+    V3_DATA_UPDATE = 1,
+    V3_DATA_COPY,
+    V3_DATA_RETURN,
+    V3_DATA_REMOVE,
+    V3_DATA_CLEAR
+};
+
+enum {
+    V3_DATA_TYPE_CHANNEL = 1,
+    V3_DATA_TYPE_RANK,
+    V3_DATA_TYPE_USER,
+    V3_DATA_TYPE_ACCOUNT
+};
+
+/* dsp.c */
+const v3_codec v3_codecs[] = {
+#if HAVE_GSM
+    { 0, 0,  3,  640,  8000, -1, "GSM 6.10 8kHz" },
+    { 0, 1,  4,  640, 11025, -1, "GSM 6.10 11kHz" },
+    { 0, 2,  7,  640, 22050, -1, "GSM 6.10 22kHz" },
+    { 0, 3,  15, 640, 44100, -1, "GSM 6.10 44kHz" },
+#endif
+#if HAVE_CELT
+    { 1, 0,  15, 640, 44100, -1, "CELT 0.7 44kHz" },
+    { 2, 0,  7,  640, 22050, -1, "CELT 0.7 22kHz" },
+#endif
+#if HAVE_SPEEX
+    { 3, 0,  6,  320,  8000,  0, "Speex 8kHz Quality 0" },
+    { 3, 1,  6,  320,  8000,  1, "Speex 8kHz Quality 1" },
+    { 3, 2,  6,  320,  8000,  2, "Speex 8kHz Quality 2" },
+    { 3, 3,  6,  320,  8000,  3, "Speex 8kHz Quality 3" },
+    { 3, 4,  6,  320,  8000,  4, "Speex 8kHz Quality 4" },
+    { 3, 5,  6,  320,  8000,  5, "Speex 8kHz Quality 5" },
+    { 3, 6,  6,  320,  8000,  6, "Speex 8kHz Quality 6" },
+    { 3, 7,  6,  320,  8000,  7, "Speex 8kHz Quality 7" },
+    { 3, 8,  6,  320,  8000,  8, "Speex 8kHz Quality 8" },
+    { 3, 9,  6,  320,  8000,  9, "Speex 8kHz Quality 9" },
+    { 3, 10, 6,  320,  8000, 10, "Speex 8kHz Quality 10" },
+    { 3, 11, 6,  640, 16000,  0, "Speex 16kHz Quality 0" },
+    { 3, 12, 6,  640, 16000,  1, "Speex 16kHz Quality 1" },
+    { 3, 13, 6,  640, 16000,  2, "Speex 16kHz Quality 2" },
+    { 3, 14, 6,  640, 16000,  3, "Speex 16kHz Quality 3" },
+    { 3, 15, 6,  640, 16000,  4, "Speex 16kHz Quality 4" },
+    { 3, 16, 6,  640, 16000,  5, "Speex 16kHz Quality 5" },
+    { 3, 17, 6,  640, 16000,  6, "Speex 16kHz Quality 6" },
+    { 3, 18, 6,  640, 16000,  7, "Speex 16kHz Quality 7" },
+    { 3, 19, 6,  640, 16000,  8, "Speex 16kHz Quality 8" },
+    { 3, 20, 6,  640, 16000,  9, "Speex 16kHz Quality 9" },
+    { 3, 21, 6,  640, 16000, 10, "Speex 16kHz Quality 10" },
+    { 3, 22, 6, 1280, 32000,  0, "Speex 32kHz Quality 0" },
+    { 3, 23, 6, 1280, 32000,  1, "Speex 32kHz Quality 1" },
+    { 3, 24, 6, 1280, 32000,  2, "Speex 32kHz Quality 2" },
+    { 3, 25, 6, 1280, 32000,  3, "Speex 32kHz Quality 3" },
+    { 3, 26, 6, 1280, 32000,  4, "Speex 32kHz Quality 4" },
+    { 3, 27, 6, 1280, 32000,  5, "Speex 32kHz Quality 5" },
+    { 3, 28, 6, 1280, 32000,  6, "Speex 32kHz Quality 6" },
+    { 3, 29, 6, 1280, 32000,  7, "Speex 32kHz Quality 7" },
+    { 3, 30, 6, 1280, 32000,  8, "Speex 32kHz Quality 8" },
+    { 3, 31, 6, 1280, 32000,  9, "Speex 32kHz Quality 9" },
+    { 3, 32, 6, 1280, 32000, 10, "Speex 32kHz Quality 10" },
+#endif
+    { -1, -1, 0, 0, 0, -1, "Unsupported Codec" }
 };
 
 /* encryption.c / handshake.c */
@@ -147,8 +199,7 @@ struct ventrilo_key_ctx {
 };
 
 /* encryption.c */
-uint32_t _v3_hash_table[] =
-{
+const uint32_t _v3_hash_table[] = {
     0x00000000, 0x77073096, 0xee0e612c, 0x990951ba,
     0x076dc419, 0x706af48f, 0xe963a535, 0x9e6495a3,
     0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
@@ -246,8 +297,29 @@ void        _v3_mutex_destroy(v3_handle v3h);
 int         _v3_mutex_lock(v3_handle v3h);
 int         _v3_mutex_unlock(v3_handle v3h);
 
+char *      _v3_strncpy(char *dest, const char *src, size_t n);
+
+/* data.c */
+int         _v3_data(v3_handle v3h, int oper, int type, void *data);
+
+/* dsp.c */
+int         _v3_audio_decode(
+                    v3_handle v3h,
+                    /* encoded input */
+                    int16_t index,
+                    int16_t format,
+                    v3_coder *coder,
+                    uint8_t *data,
+                    int32_t datalen,
+                    /* pcm output */
+                    uint8_t *pcm,
+                    uint32_t *pcmlen,
+                    /* optional args */
+                    uint32_t *rate,
+                    uint8_t channels);
+
 /* encryption.c */
-void        _v3_password(v3_handle v3h, char *password, uint8_t *hash);
+void        _v3_password(v3_handle v3h, const char *password, uint8_t *hash);
 int         _v3_read_keys(v3_handle v3h, ventrilo_key_ctx *client, ventrilo_key_ctx *server, uint8_t *data, uint32_t len);
 void        _v3_dec_init(v3_handle v3h, uint8_t *data, uint32_t len);
 void        _v3_enc_init(v3_handle v3h, uint8_t *data, uint32_t len);
@@ -261,11 +333,18 @@ uint16_t    _v3_udp_header(v3_handle v3h, uint32_t type, uint8_t *buf, uint8_t *
 int         _v3_udp_send(v3_handle v3h, int sd, uint32_t vnum, uint32_t ip, uint16_t port, uint8_t *data, uint32_t len);
 int         _v3_udp_recv(v3_handle v3h, int sd, uint8_t *data, uint32_t maxsz, const ventrilo3_auth_t *vauth, uint16_t *handshake_idx);
 
+/* message.c */
+int         _v3_msg_chat_put(v3_handle v3h, uint16_t subtype, const char *message);
+int         _v3_msg_user_option_put(v3_handle v3h, uint16_t user_id, uint16_t subtype, uint32_t value);
+int         _v3_msg_chan_list_put(v3_handle v3h, uint16_t subtype, uint16_t user, const char *password, const v3_channel *c);
+int         _v3_msg_user_list_put(v3_handle v3h, uint16_t subtype, const v3_user *u);
+
 /* network.c */
 int         _v3_connected(v3_handle v3h);
 int         _v3_canceling(v3_handle v3h);
 void        _v3_close(v3_handle v3h);
 int         _v3_connect(v3_handle v3h, int tcp);
+void        _v3_timestamp(v3_handle v3h, struct timeval *tv);
 int         _v3_send(v3_handle v3h, _v3_message *m);
 void *      _v3_recv(v3_handle v3h, int block);
 

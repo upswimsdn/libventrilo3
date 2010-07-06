@@ -45,7 +45,7 @@
  */
 
 void
-_v3_password(v3_handle v3h, char *password, uint8_t *hash) {
+_v3_password(v3_handle v3h, const char *password, uint8_t *hash) {
     const char func[] = "_v3_password";
 
     uint32_t crc, i, j, cnt, len;
@@ -66,6 +66,61 @@ _v3_password(v3_handle v3h, char *password, uint8_t *hash) {
     }
 
     _v3_leave(v3h, func);
+}
+
+uint32_t
+_v3_hash_table_scramble(v3_handle v3h, uint16_t type, uint32_t val) {
+    const char func[] = "_v3_hash_table_scramble";
+
+    uint8_t in[16];
+    uint32_t out, i;
+
+    _v3_enter(v3h, func);
+
+    snprintf((char *)in, sizeof(in), (type == 0x05 || val) ? "%08x" : "%08X", (!val) ? (uint32_t)rand() : val);
+    for (out = 0, i = 0; i < 8; i++) {
+        out = (out >> 8) ^ _v3_hash_table[(uint8_t)(in[i] ^ out)];
+    }
+
+    _v3_leave(v3h, func);
+    return out;
+}
+
+uint32_t
+_v3_hash_table_sum(v3_handle v3h, uint32_t type) {
+    const char func[] = "_v3_hash_table_sum";
+
+    uint32_t seed, iter, out, i, j;
+    uint8_t idx;
+
+    _v3_enter(v3h, func);
+
+    switch (type) {
+      case 0x00:
+      case 0x06:
+      case 0x09:
+        seed = 0xBAADF00D;
+        iter = 16;
+        break;
+      case 0x02:
+        seed = 0x0DBAADF0;
+        iter = 16;
+        break;
+      case 0x04:
+      case 0x08:
+        seed = 0xBAADF00D;
+        iter = 32;
+        break;
+    }
+    for (out = 0, i = 0; i < iter; i++) {
+        for (j = 0; j < 4; j++) {
+            idx = ((seed >> (j * 8)) ^ out) & 0xff;
+            out = (out >> 8) ^ _v3_hash_table[idx];
+        }
+    }
+
+    _v3_leave(v3h, func);
+    return _v3_hash_table_scramble(v3h, 0, out);
 }
 
 /*

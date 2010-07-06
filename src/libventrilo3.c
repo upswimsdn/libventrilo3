@@ -34,8 +34,9 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#include <time.h> /* time() */
-#include <errno.h> /* ERANGE */
+#include <time.h>
+#include <sys/time.h>
+#include <errno.h>
 
 #ifdef WIN32
 # include <winsock.h>
@@ -43,15 +44,32 @@
 # include <unistd.h>
 # include <sys/socket.h>
 # include <sys/types.h>
-# include <netinet/in.h> /* struct in_addr */
-# include <netdb.h> /* struct hostent */
-# include <arpa/inet.h> /* inet_aton / inet_ntoa */
+# include <netinet/in.h>
+# include <netdb.h>
+# include <arpa/inet.h>
+#endif
+
+#if HAVE_GSM_H
+# include <gsm.h>
+#elif HAVE_GSM_GSM_H
+# include <gsm/gsm.h>
+#endif
+#if HAVE_CELT
+# include <celt/celt.h>
+#endif
+#if HAVE_SPEEX
+# include <speex/speex.h>
+#endif
+#if HAVE_SPEEX_DSP
+# include <speex/speex_resampler.h>
 #endif
 
 #include "libventrilo3.h"
 
 #define false   0
 #define true    1
+
+#include "message.h"
 
 #include "api.c"
 #include "data.c"
@@ -113,8 +131,8 @@ v3_init(const char *server, const char *username) {
 }
 
 v3_handle
-v3_find_handle(const char *server, const char *username) {
-    const char func[] = "v3_find_handle";
+v3_find(const char *server, const char *username) {
+    const char func[] = "v3_find";
 
     v3_handle v3h;
     _v3_connection *v3c;
@@ -156,7 +174,7 @@ v3_find_handle(const char *server, const char *username) {
  * disconnect if currently connected.
  * @param v3h A v3_handle created by v3_init()
  */
-int
+void
 v3_destroy(v3_handle v3h) {
     const char func[] = "v3_destroy";
 
@@ -164,7 +182,7 @@ v3_destroy(v3_handle v3h) {
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         _v3_leave(V3_HANDLE_NONE, func);
-        return V3_FAILURE;
+        return;
     }
 
     _v3_mutex_lock(V3_HANDLE_NONE);
@@ -183,12 +201,11 @@ v3_destroy(v3_handle v3h) {
     _v3_mutex_unlock(V3_HANDLE_NONE);
 
     _v3_leave(V3_HANDLE_NONE, func);
-    return V3_OK;
 }
 
 int
-v3_set_password(v3_handle v3h, const char *password) {
-    const char func[] = "v3_set_password";
+v3_password(v3_handle v3h, const char *password) {
+    const char func[] = "v3_password";
 
     _v3_connection *v3c;
 
@@ -205,8 +222,8 @@ v3_set_password(v3_handle v3h, const char *password) {
 }
 
 int
-v3_set_phonetic(v3_handle v3h, const char *phonetic) {
-    const char func[] = "v3_set_phonetic";
+v3_phonetic(v3_handle v3h, const char *phonetic) {
+    const char func[] = "v3_phonetic";
 
     _v3_connection *v3c;
 
@@ -222,9 +239,41 @@ v3_set_phonetic(v3_handle v3h, const char *phonetic) {
     return V3_OK;
 }
 
-/*
- *
- */
+int
+v3_default_channel_path(v3_handle v3h, const char *path) {
+    const char func[] = "v3_default_channel_path";
+
+    _v3_connection *v3c;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    v3c = _v3_handles[v3h];
+    strncpy(v3c->def_path, path, sizeof(v3c->def_path) - 1);
+
+    _v3_leave(v3h, func);
+    return V3_OK;
+}
+
+int
+v3_default_channel_id(v3_handle v3h, uint16_t id) {
+    const char func[] = "v3_default_channel_id";
+
+    _v3_connection *v3c;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    v3c = _v3_handles[v3h];
+    v3c->def_id = id;
+
+    _v3_leave(v3h, func);
+    return V3_OK;
+}
 
 int
 _v3_handle_valid(v3_handle v3h) {
@@ -591,5 +640,19 @@ _v3_mutex_unlock(v3_handle v3h) {
 
     _v3_leave(v3h, func);
     return V3_FAILURE;
+}
+
+char *
+_v3_strncpy(char *dest, const char *src, size_t n) {
+    uint8_t *_dest = (uint8_t *)dest;
+    uint8_t *_src = (uint8_t *)src;
+
+    while (n --> 0) {
+        if ((*_dest++ = (*_src && *_src < 0x20) ? 0x20 : *_src)) {
+            _src++;
+        }
+    }
+
+    return dest;
 }
 

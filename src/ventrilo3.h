@@ -28,24 +28,23 @@
 #define _VENTRILO3_H
 
 #include <stdint.h>
-#include <sys/time.h> /* struct timeval */
 
 #define PACK __attribute__ ((__packed__))
 
-#define V3_OK       0
-#define V3_FAILURE  1
-#define V3_MALFORM  2
-#define V3_NOTIMPL  3
+#define V3_OK           0
+#define V3_FAILURE      1
+#define V3_MALFORM      2
+#define V3_NOTIMPL      3
 
-#define V3_BLOCK    1
-#define V3_NONBLOCK 0
+#define V3_BLOCK        1
+#define V3_NONBLOCK     0
 
-#define V3_NONE     0
-#define V3_CRITICAL 1
-#define V3_WARNING  2
-#define V3_NOTICE   3
-#define V3_INFO     4
-#define V3_DEBUG    5
+#define V3_NONE         0
+#define V3_CRITICAL     1
+#define V3_WARNING      2
+#define V3_NOTICE       3
+#define V3_INFO         4
+#define V3_DEBUG        5
 
 #define V3_DBG_NONE     0
 #define V3_DBG_ERROR    1 << 0
@@ -64,8 +63,8 @@
 
 typedef int16_t             v3_handle;
 
-typedef struct v3_perm      v3_perm;
 typedef struct v3_codec     v3_codec;
+typedef struct v3_coder     v3_coder;
 
 typedef struct v3_channel   v3_channel;
 typedef struct v3_rank      v3_rank;
@@ -74,80 +73,10 @@ typedef struct v3_account   v3_account;
 
 typedef struct v3_event     v3_event;
 
-struct v3_perm {
-    uint16_t    id;
-    uint16_t    replace_owner_id;
-    uint8_t     password[32];
-    uint16_t    rank_id;
-    uint16_t    unknown_perm_1;
-    uint8_t     lock_acct;
-    uint8_t     in_reserve_list;
-    uint8_t     dupe_ip;
-    uint8_t     switch_chan;
-    uint16_t    dfl_chan;
-    uint8_t     unknown_perm_2;
-    uint8_t     unknown_perm_3;
-    uint8_t     recv_bcast;
-    uint8_t     add_phantom;
-    uint8_t     record;
-    uint8_t     recv_complaint;
-    uint8_t     send_complaint;
-    uint8_t     inactive_exempt;
-    uint8_t     unknown_perm_4;
-    uint8_t     unknown_perm_5;
-    uint8_t     srv_admin;
-    uint8_t     add_user;
-    uint8_t     del_user;
-    uint8_t     ban_user;
-    uint8_t     kick_user;
-    uint8_t     move_user;
-    uint8_t     assign_chan_admin;
-    uint8_t     edit_rank;
-    uint8_t     edit_motd;
-    uint8_t     edit_guest_motd;
-    uint8_t     issue_rcon_cmd;
-    uint8_t     edit_voice_target;
-    uint8_t     edit_command_target;
-    uint8_t     assign_rank;
-    uint8_t     assign_reserved;
-    uint8_t     unknown_perm_6;
-    uint8_t     unknown_perm_7;
-    uint8_t     unknown_perm_8;
-    uint8_t     unknown_perm_9;
-    uint8_t     unknown_perm_10;
-    uint8_t     bcast;
-    uint8_t     bcast_lobby;
-    uint8_t     bcast_user;
-    uint8_t     bcast_x_chan;
-    uint8_t     send_tts_bind;
-    uint8_t     send_wav_bind;
-    uint8_t     send_page;
-    uint8_t     send_comment;
-    uint8_t     set_phon_name;
-    uint8_t     gen_comment_snds;
-    uint8_t     event_snds;
-    uint8_t     mute_glbl;
-    uint8_t     mute_other;
-    uint8_t     glbl_chat; 
-    uint8_t     start_priv_chat; 
-    uint8_t     unknown_perm_11; 
-    uint8_t     eq_out; 
-    uint8_t     unknown_perm_12; 
-    uint8_t     unknown_perm_13; 
-    uint8_t     unknown_perm_14; 
-    uint8_t     see_guest; 
-    uint8_t     see_nonguest; 
-    uint8_t     see_motd; 
-    uint8_t     see_srv_comment; 
-    uint8_t     see_chan_list; 
-    uint8_t     see_chan_comment; 
-    uint8_t     see_user_comment; 
-    uint8_t     unknown_perm_15; 
-} PACK;
-
 struct v3_codec {
-    int8_t      index;
-    int8_t      format;
+    int16_t     index;
+    int16_t     format;
+    uint8_t     frames;
     uint32_t    framesize;
     uint32_t    rate;
     int         quality;
@@ -156,32 +85,40 @@ struct v3_codec {
 
 extern const v3_codec v3_codecs[];
 
+struct v3_coder {
+    int16_t     index;
+    int16_t     format;
+    uint8_t     channels;
+    void *      mode;
+    void *      state;
+};
+
 struct v3_channel {
-    uint16_t    id;
-    uint16_t    parent;
-    uint8_t     unknown_1;
-    uint8_t     password_protected;
-    uint16_t    unknown_2;
-    uint16_t    allow_recording;
-    uint16_t    allow_cross_channel_transmit;
-    uint16_t    allow_paging;
-    uint16_t    allow_wave_file_binds;
-    uint16_t    allow_tts_binds;
-    uint16_t    allow_u2u_transmit;
-    uint16_t    disable_guest_transmit;
-    uint16_t    disable_sound_events;
-    uint16_t    voice_mode;
-    uint16_t    transmit_time_limit;
-    uint16_t    allow_phantoms;
-    uint16_t    max_clients;
-    uint16_t    allow_guests;
-    uint16_t    inactive_exempt;
-    uint16_t    protect_mode;
-    uint16_t    transmit_rank_level;
-    uint16_t    codec_index;
-    uint16_t    codec_format;
-    uint16_t    allow_voice_target;
-    uint16_t    allow_command_target;
+    uint16_t    id;                 // 0
+    uint16_t    parent;             // 2
+    uint8_t     unknown_1;          // 4
+    uint8_t     passworded;         // 5
+    uint16_t    unknown_2;          // 6
+    uint16_t    record;             // 8
+    uint16_t    xmit_x_chan;        // 10
+    uint16_t    paging;             // 12
+    uint16_t    wav_binds;          // 14
+    uint16_t    tts_binds;          // 16
+    uint16_t    xmit_u2u;           // 18
+    uint16_t    xmit_guest_disable; // 20
+    uint16_t    events_disable;     // 22
+    uint16_t    voice_mode;         // 24
+    uint16_t    xmit_time_limit;    // 26
+    uint16_t    phantoms;           // 28
+    uint16_t    max_clients;        // 30
+    uint16_t    guest_join;         // 32
+    uint16_t    inactive_ignore;    // 34
+    uint16_t    protect_mode;       // 36
+    uint16_t    xmit_rank_level;    // 38
+    int16_t     codec_index;        // 40
+    int16_t     codec_format;       // 42
+    uint16_t    voice_targets;      // 44
+    uint16_t    command_targets;    // 46
 
     char        _internal_;
 
@@ -193,8 +130,8 @@ struct v3_channel {
 } PACK;
 
 struct v3_rank {
-    uint16_t    id;
-    uint16_t    level;
+    uint16_t    id;                 // 0
+    uint16_t    level;              // 2
 
     char        _internal_;
 
@@ -205,10 +142,10 @@ struct v3_rank {
 } PACK;
 
 struct v3_user {
-    uint16_t    id;
-    uint16_t    channel;
-    uint16_t    flags;
-    uint16_t    rank_id;
+    uint16_t    id;                 // 0
+    uint16_t    channel;            // 2
+    uint16_t    flags;              // 4
+    uint16_t    rank;               // 6
 
     char        _internal_;
 
@@ -221,38 +158,226 @@ struct v3_user {
     uint8_t     accept_pages;
     uint8_t     accept_u2u;
     uint8_t     accept_chat;
-    uint8_t     allow_recording;
+    uint8_t     allow_record;
 
-    uint8_t     is_global_mute;
-    uint8_t     is_channel_mute;
-    uint8_t     is_transmitting;
-    uint8_t     is_guest;
+    uint8_t     muted_local;
+    uint8_t     muted_global;
+    uint8_t     muted_channel;
+    uint8_t     transmitting;
+    uint8_t     guest;
     uint16_t    phantom_owner;
 
-    void *      gsm_decoder;
-    void *      speex_decoder;
-
-    uint16_t    volume;
+    v3_coder    decoder;
+    float       volume;
 
     v3_user *   next;
 } PACK;
 
+enum {
+    V3_USER_ACCEPT_PAGES    = 0x00,
+    V3_USER_ACCEPT_U2U      = 0x01,
+    V3_USER_ALLOW_RECORD    = 0x02,
+    V3_USER_ACCEPT_CHAT     = 0x03,
+    V3_USER_GLOBAL_MUTE     = 0x04,
+    V3_USER_CHANNEL_MUTE    = 0x05
+};
+
 struct v3_account {
-    v3_perm     perm;
-    char        username[32];
+    uint16_t    id;                 // 0
+    uint16_t    owner_replace;      // 2
+    uint8_t     password[32];       // 4
+    uint16_t    rank;               // 36
+    uint16_t    unknown_1;          // 38
+    uint8_t     locked;             // 40
+    uint8_t     reserved;           // 41
+    uint8_t     duplicates;         // 42
+    uint8_t     chan_change;        // 43
+    uint16_t    chan_default;       // 44
+    uint8_t     unknown_2;          // 46
+    uint8_t     unknown_3;          // 47
+    uint8_t     recv_broadcast;     // 48
+    uint8_t     phantom_add;        // 49
+    uint8_t     record;             // 50
+    uint8_t     recv_complaint;     // 51
+    uint8_t     send_complaint;     // 52
+    uint8_t     inactive_ignore;    // 53
+    uint8_t     unknown_4;          // 54
+    uint8_t     unknown_5;          // 55
+    uint8_t     srv_admin;          // 56
+    uint8_t     user_add;           // 57
+    uint8_t     user_del;           // 58
+    uint8_t     user_ban;           // 59
+    uint8_t     user_kick;          // 60
+    uint8_t     user_move;          // 61
+    uint8_t     chan_assign;        // 62
+    uint8_t     rank_edit;          // 63
+    uint8_t     motd_edit;          // 64
+    uint8_t     motd_guest_edit;    // 65
+    uint8_t     rcon;               // 66
+    uint8_t     voice_target_edit;  // 67
+    uint8_t     cmd_target_edit;    // 68
+    uint8_t     rank_assign;        // 69
+    uint8_t     reserve_assign;     // 70
+    uint8_t     unknown_6;          // 71
+    uint8_t     unknown_7;          // 72
+    uint8_t     unknown_8;          // 73
+    uint8_t     unknown_9;          // 74
+    uint8_t     unknown_10;         // 75
+    uint8_t     broadcast;          // 76
+    uint8_t     broadcast_lobby;    // 77
+    uint8_t     broadcast_u2u;      // 78
+    uint8_t     broadcast_x_chan;   // 79
+    uint8_t     tts_send;           // 80
+    uint8_t     wav_send;           // 81
+    uint8_t     page_send;          // 82
+    uint8_t     comment_send;       // 83
+    uint8_t     phonetic_set;       // 84
+    uint8_t     comment_notify;     // 85
+    uint8_t     event_notify;       // 86
+    uint8_t     mute_global;        // 87
+    uint8_t     mute_others;        // 88
+    uint8_t     chat_global;        // 89
+    uint8_t     chat_priv;          // 90
+    uint8_t     unknown_11;         // 91
+    uint8_t     equalizer;          // 92
+    uint8_t     unknown_12;         // 93
+    uint8_t     unknown_13;         // 94
+    uint8_t     unknown_14;         // 95
+    uint8_t     see_guest;          // 96
+    uint8_t     see_nonguest;       // 97
+    uint8_t     see_motd;           // 98
+    uint8_t     see_srv_comment;    // 99
+    uint8_t     see_chan_list;      // 100
+    uint8_t     see_chan_comment;   // 101
+    uint8_t     see_user_comment;   // 102
+    uint8_t     unknown_15;         // 103
+
+    char        _internal_;
+
+    char        name[32];
     char        owner[32];
     char        notes[256];
     char        lock_reason[128];
-    int         chan_admin_count;
     uint16_t    chan_admin[32];
-    int         chan_auth_count;
+    uint16_t    chan_admin_count;
     uint16_t    chan_auth[32];
+    uint16_t    chan_auth_count;
 
     v3_account *next;
-};
+} PACK;
+
+typedef struct {
+    uint16_t    action;
+    uint16_t    interval;
+    uint16_t    times;
+} PACK v3_filter;
+
+typedef struct {
+    uint16_t    chat_filter;
+    uint16_t    chan_order;
+    uint16_t    motd_always;
+    v3_filter   chat_spam;
+    v3_filter   comment_spam;
+    v3_filter   wav_spam;
+    v3_filter   tts_spam;
+    uint16_t    inactive_timeout;
+    uint16_t    inactive_action;
+    uint16_t    inactive_channel;
+    uint16_t    rem_srv_comment;
+    uint16_t    rem_chan_name;
+    uint16_t    rem_chan_comment;
+    uint16_t    rem_user_name;
+    uint16_t    rem_user_comment;
+    char        srv_comment[0x100];
+    uint16_t    wav_disable;
+    uint16_t    tts_disable;
+    v3_filter   chan_spam;
+    uint16_t    rem_login;
+    uint16_t    max_guest;
+    uint16_t    auto_kick;
+    uint16_t    auto_ban;
+} PACK v3_prop;
 
 struct v3_event {
+    int         type;
 
+    uint16_t    ping;
+
+    v3_channel  channel;
+    v3_rank     rank;
+    v3_user     user;
+    v3_account  account;
+
+    union {
+        v3_prop prop;
+        char    message[0x100];
+        struct {
+            uint32_t rate;
+            uint8_t  channels;
+            uint32_t length;
+            uint8_t  sample[32768];
+        } pcm;
+    } data;
+
+    v3_event *  next;
+};
+
+enum {
+    V3_EVENT_ERROR = 1,
+    V3_EVENT_LOGIN,
+    V3_EVENT_LOGOUT,
+    V3_EVENT_PING,
+    V3_EVENT_PROP_CHAT_FILTER,
+    V3_EVENT_PROP_CHAN_ORDER,
+    V3_EVENT_PROP_MOTD_ALWAYS,
+    V3_EVENT_MOTD,
+    V3_EVENT_CHAN_LIST,
+    V3_EVENT_CHAN_ADD,
+    V3_EVENT_CHAN_REMOVE,
+    V3_EVENT_CHAN_UPDATE,
+    V3_EVENT_CHAN_ADMIN,
+    V3_EVENT_CHAN_AUTH,
+    V3_EVENT_CHAN_CHANGE,
+    V3_EVENT_CHAN_MOVE,
+    V3_EVENT_RANK_OPEN,
+    V3_EVENT_RANK_CLOSE,
+    V3_EVENT_RANK_LIST,
+    V3_EVENT_RANK_ADD,
+    V3_EVENT_RANK_REMOVE,
+    V3_EVENT_RANK_UPDATE,
+    V3_EVENT_USER_LIST,
+    V3_EVENT_USER_LOGIN,
+    V3_EVENT_USER_LOGOUT,
+    V3_EVENT_USER_UPDATE,
+    V3_EVENT_USER_MUTE,
+    V3_EVENT_USER_RANK,
+    V3_EVENT_ACCT_OPEN,
+    V3_EVENT_ACCT_CLOSE,
+    V3_EVENT_ACCT_LIST,
+    V3_EVENT_ACCT_ADD,
+    V3_EVENT_ACCT_REMOVE,
+    V3_EVENT_ACCT_UPDATE,
+    V3_EVENT_ACCT_LOCAL,
+    V3_EVENT_ACCT_OWNER,
+    V3_EVENT_AUDIO_START,
+    V3_EVENT_AUDIO_STOP,
+    V3_EVENT_AUDIO_RECV,
+    V3_EVENT_AUDIO_MUTE,
+    V3_EVENT_AUDIO_VRF,
+    V3_EVENT_CHAT_JOIN,
+    V3_EVENT_CHAT_LEAVE,
+    V3_EVENT_CHAT_MESSAGE,
+    V3_EVENT_CHAT_RCON,
+    V3_EVENT_CHAT_PRIV_START,
+    V3_EVENT_CHAT_PRIV_END,
+    V3_EVENT_CHAT_PRIV_MESSAGE,
+    V3_EVENT_CHAT_PRIV_AWAY,
+    V3_EVENT_CHAT_PRIV_BACK,
+    V3_EVENT_TTS_MESSAGE,
+    V3_EVENT_WAV_MESSAGE,
+    V3_EVENT_ADMIN_AUTH,
+
+    V3_EVENT_INTERNAL
 };
 
 /*
@@ -265,119 +390,124 @@ const char *    v3_error(v3_handle v3h);
  * Functions to initialize a connection and perform mainloop processing
  */
 v3_handle       v3_init(const char *server, const char *username);
-v3_handle       v3_find_handle(const char *server, const char *username);
-int             v3_destroy(v3_handle v3h);
+v3_handle       v3_find(const char *server, const char *username);
+void            v3_destroy(v3_handle v3h);
 
-int             v3_set_password(v3_handle v3h, const char *password);
-int             v3_set_phonetic(v3_handle v3h, const char *phonetic);
-int32_t         v3_set_default_channel_path(v3_handle v3h, char *path);
-int32_t         v3_set_default_channel_id(v3_handle v3h, int32_t id);
+int             v3_password(v3_handle v3h, const char *password);
+int             v3_phonetic(v3_handle v3h, const char *phonetic);
+int             v3_default_channel_path(v3_handle v3h, const char *path);
+int             v3_default_channel_id(v3_handle v3h, uint16_t id);
 
 int             v3_login(v3_handle v3h);
 int             v3_login_cancel(v3_handle v3h);
-int             v3_iterate(v3_handle v3h, uint8_t block/*, struct timeval *tv*/);
-int32_t         v3_is_loggedin(v3_handle v3h);
-
-/*
- * Retreive server information
- */
-int32_t         v3_get_luser_id(v3_handle v3h);
-int32_t         v3_get_luser_channel(v3_handle v3h);
-int32_t         v3_get_max_clients(v3_handle v3h);
-uint64_t        v3_get_bytes_sent(v3_handle v3h);
-uint64_t        v3_get_bytes_recv(v3_handle v3h);
-uint32_t        v3_get_pkts_sent(v3_handle v3h);
-uint32_t        v3_get_pkts_recv(v3_handle v3h);
-
-v3_user *       get_user(v3_handle v3h, int32_t id);
-int32_t         v3_free_user(v3_user *user);
-
-v3_channel *    get_channel(v3_handle v3h, int32_t id);
-char *          get_channel_path(v3_handle v3h, int32_t id, char *result, int size);
-int32_t         v3_free_channel(v3_channel *channel);
-
-v3_rank *       get_rank(v3_handle v3h, int32_t id);
-int32_t         v3_free_rank(v3_rank *rank);
-
-v3_account *    get_account(v3_handle v3h, int32_t id);
-int32_t         v3_free_account(v3_account *account);
-
-const v3_perm * v3_get_permissions(v3_handle v3h);
-const v3_codec *v3_get_channel_codec(v3_handle v3h, int32_t id);
-
-int32_t         v3_channel_requires_password(v3_handle v3h, int32_t id);
-
-int32_t         v3_get_codec_rate(int16_t codec, int16_t format);
-const v3_codec *v3_get_codec(int16_t codec, int16_t format);
-
-int16_t         v3_user_count(v3_handle v3h);
-int16_t         v3_channel_count(v3_handle v3h);
-int16_t         v3_rank_count(v3_handle v3h);
-int16_t         v3_account_count(v3_handle v3h);
+int             v3_logged_in(v3_handle v3h);
+int             v3_iterate(v3_handle v3h, int block, uint32_t max);
 
 /*
  * Event processing functions
  */
-int32_t         v3_check_events(v3_handle v3h);
-v3_event *      v3_get_event(v3_handle v3h);
-int32_t         v3_free_event(v3_event *event);
-int32_t         v3_clear_events(v3_handle v3h);
+int             v3_event_count(v3_handle v3h);
+int             v3_event_get(v3_handle v3h, int block, v3_event *ev);
+void            v3_event_clear(v3_handle v3h);
+
+/*
+ * Retreive server information
+ */
+uint16_t        v3_luser_id(v3_handle v3h);
+uint16_t        v3_luser_channel(v3_handle v3h);
+uint16_t        v3_licensed(v3_handle v3h);
+uint16_t        v3_slot_count(v3_handle v3h);
+uint64_t        v3_sent_bytes(v3_handle v3h);
+uint64_t        v3_recv_bytes(v3_handle v3h);
+uint32_t        v3_sent_packets(v3_handle v3h);
+uint32_t        v3_recv_packets(v3_handle v3h);
+
+int             v3_channel_admin(v3_handle v3h, uint16_t id);
+uint16_t        v3_channel_password(v3_handle v3h, uint16_t id);
+char *          v3_channel_path(v3_handle v3h, uint16_t id);
+uint16_t        v3_channel_id(v3_handle v3h, const char *path);
+int             v3_channel_sort(v3_handle v3h, uint16_t left, uint16_t right);
+
+int             v3_channel_count(v3_handle v3h);
+int             v3_channel_get(v3_handle v3h, v3_channel *c);
+
+int             v3_rank_count(v3_handle v3h);
+int             v3_rank_get(v3_handle v3h, v3_rank *r);
+
+int             v3_user_count(v3_handle v3h);
+int             v3_user_get(v3_handle v3h, v3_user *u);
+
+int             v3_account_count(v3_handle v3h);
+int             v3_account_get(v3_handle v3h, v3_account *a);
+
+int             v3_lacct(v3_handle v3h, v3_account *a);
+
+const v3_codec *v3_codec_get(int16_t index, int16_t format);
+const v3_codec *v3_codec_channel_get(v3_handle v3h, uint16_t id);
+const v3_codec *v3_codec_user_get(v3_handle v3h, uint16_t id);
+uint32_t        v3_codec_rate_get(int16_t index, int16_t format);
 
 /*
  * Audio signal processing functions
  */
-void            v3_set_volume_master(int16_t level);
-int16_t         v3_get_volume_master(void);
-void            v3_set_volume_server_master(v3_handle v3h, int16_t level);
-int16_t         v3_get_volume_server_master(v3_handle v3h);
-void            v3_set_volume_user(v3_handle v3h, int32_t id, int16_t level);
-int16_t         v3_get_volume_user(v3_handle v3h, int32_t id);
+void            v3_volume_master_set(float level);
+float           v3_volume_master_get(void);
+void            v3_volume_server_set(v3_handle v3h, float level);
+float           v3_volume_server_get(v3_handle v3h);
+void            v3_volume_user_set(v3_handle v3h, uint16_t id, float level);
+float           v3_volume_user_get(v3_handle v3h, uint16_t id);
 
 /*
- * Normal user functions
+ * Outbound user functions
  */
-void            v3_set_text(v3_handle v3h, char *comment, char *url, char *integration_text, uint8_t silent);
+int             v3_luser_option(v3_handle v3h, int type, uint8_t value);
+int             v3_luser_text(v3_handle v3h, const char *comment, const char *url, const char *integration, uint8_t silent);
 
-void            v3_join_chat(v3_handle v3h);
-void            v3_leave_chat(v3_handle v3h);
-void            v3_send_chat_message(v3_handle v3h, char *message);
+int             v3_channel_change(v3_handle v3h, uint16_t id, const char *password);
 
-void            v3_start_privchat(v3_handle v3h, int32_t id);
-void            v3_end_privchat(v3_handle v3h, int32_t id);
-void            v3_send_privchat_message(v3_handle v3h, int32_t id, char *message);
-void            v3_send_privchat_away(v3_handle v3h, int32_t id);
-void            v3_send_privchat_back(v3_handle v3h, int32_t id);
+int             v3_user_mute(v3_handle v3h, uint16_t id, uint8_t mute);
 
-void            v3_change_channel(v3_handle v3h, int32_t id, char *password);
+int             v3_chat_join(v3_handle v3h);
+int             v3_chat_leave(v3_handle v3h);
+int             v3_chat_message(v3_handle v3h, const char *message);
 
-void            v3_start_audio(v3_handle v3h, int32_t dest);
-void            v3_send_audio(v3_handle v3h, int32_t dest, uint32_t rate, uint8_t *pcm, uint32_t length);
-void            v3_stop_audio(v3_handle v3h);
+void            v3_chat_priv_start(v3_handle v3h, uint16_t id);
+void            v3_chat_priv_end(v3_handle v3h, uint16_t id);
+void            v3_chat_priv_message(v3_handle v3h, uint16_t id, const char *message);
+void            v3_chat_priv_away(v3_handle v3h, uint16_t id);
+void            v3_chat_priv_back(v3_handle v3h, uint16_t id);
 
-void            v3_phantom_add(v3_handle v3h, int32_t id);
-void            v3_phantom_remove(v3_handle v3h, int32_t id);
+void            v3_audio_start(v3_handle v3h, const uint16_t *dest);
+void            v3_audio_stop(v3_handle v3h);
+void            v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, uint32_t len);
 
-void            v3_set_luser_option(v3_handle v3h, uint8_t type, uint8_t value);
+void            v3_phantom_add(v3_handle v3h, uint16_t id);
+void            v3_phantom_remove(v3_handle v3h, uint16_t id);
 
 /*
- * Admin user functions
+ * Administrative user functions
  */
-void            v3_admin_login(v3_handle v3h, char *password);
+void            v3_admin_login(v3_handle v3h, const char *password);
 void            v3_admin_logout(v3_handle v3h);
+void            v3_admin_ban_list(v3_handle v3h);
+void            v3_admin_ban_add(v3_handle v3h, uint16_t bitmask, uint32_t ip, const char *user, const char *reason);
+void            v3_admin_ban_remove(v3_handle v3h, uint16_t bitmask, uint32_t ip);
+void            v3_admin_boot(v3_handle v3h, int type, uint16_t id, const char *reason);
+void            v3_admin_motd(v3_handle v3h, int guest, const char *motd);
+void            v3_admin_move(v3_handle v3h, uint16_t src, uint16_t dest);
+void            v3_admin_mute_channel(v3_handle v3h, uint16_t id);
+void            v3_admin_mute_global(v3_handle v3h, uint16_t id);
 
-void            v3_admin_boot(v3_handle v3h, int8_t type, int32_t id, char *reason);
-void            v3_force_move_user(v3_handle v3h, int32_t id, int32_t dest);
+void            v3_channel_add(v3_handle v3h, uint16_t id, const v3_channel *c);
+void            v3_channel_update(v3_handle v3h, uint16_t id, const v3_channel *c);
+void            v3_channel_remove(v3_handle v3h, uint16_t id);
 
 void            v3_account_open(v3_handle v3h);
 void            v3_account_close(v3_handle v3h);
-void            v3_account_add(v3_handle v3h, v3_account *account);
-void            v3_account_update(v3_handle v3h, v3_account *account);
-void            v3_account_remove(v3_handle v3h, int32_t id);
-void            v3_account_change_owner(v3_handle v3h, int32_t accountid, int32_t ownerid);
-
-void            v3_channel_add(v3_handle v3h, int32_t id, v3_channel *channel);
-void            v3_channel_update(v3_handle v3h, int32_t id, v3_channel *channel);
-void            v3_channel_remove(v3_handle v3h, int32_t id);
+void            v3_account_add(v3_handle v3h, const v3_account *a);
+void            v3_account_update(v3_handle v3h, const v3_account *a);
+void            v3_account_remove(v3_handle v3h, uint16_t id);
+void            v3_account_owner(v3_handle v3h, uint16_t id, uint16_t owner);
 
 #endif // _VENTRILO3_H
 

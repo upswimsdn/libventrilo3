@@ -72,6 +72,7 @@ _v3_close(v3_handle v3h) {
 
     v3c = _v3_handles[v3h];
     if (_v3_connected(v3h)) {
+        shutdown(v3c->sd, SHUT_WR);
         close(v3c->sd);
         v3c->sd = -1;
     }
@@ -106,22 +107,66 @@ _v3_connect(v3_handle v3h, int tcp) {
         _v3_leave(v3h, func);
         return V3_FAILURE;
     }
-    setsockopt(v3c->sd, SOL_SOCKET, SO_LINGER, (char *)&ling, sizeof(ling));
+    setsockopt(v3c->sd, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling));
     if (tcp) {
         sa.sin_family = AF_INET;
         sa.sin_addr.s_addr = v3c->ip;
         sa.sin_port = htons(v3c->port);
+        _v3_debug(v3h, V3_DBG_SOCKET, "tcp connecting to '%s:%hu'...", inet_ntoa(sa.sin_addr), v3c->port);
         if (connect(v3c->sd, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
             _v3_error(v3h, "failed to connect: %s", strerror(errno));
             _v3_close(v3h);
             _v3_leave(v3h, func);
             return V3_FAILURE;
         }
-        _v3_debug(v3h, V3_DBG_STATUS, "tcp connected: '%s:%hu'", inet_ntoa(sa.sin_addr), v3c->port);
+        _v3_debug(v3h, V3_DBG_STATUS, "tcp connected");
     }
 
     _v3_leave(v3h, func);
     return V3_OK;
+}
+
+void
+_v3_timestamp(v3_handle v3h, struct timeval *tv) {
+    const char func[] = "_v3_timestamp";
+
+    _v3_connection *v3c;
+    struct timeval now;
+    int nsec;
+
+    _v3_enter(v3h, func);
+
+    v3c = _v3_handles[v3h];
+    if (v3c->logged_in) {
+        gettimeofday(&now, NULL);
+        if (v3c->timestamp.tv_usec < now.tv_usec) {
+            nsec = (now.tv_usec - v3c->timestamp.tv_usec) / 1000000 + 1;
+            now.tv_usec -= 1000000 * nsec;
+            now.tv_sec += nsec;
+        }
+        if (v3c->timestamp.tv_usec - now.tv_usec > 1000000) {
+            nsec = (v3c->timestamp.tv_usec - now.tv_usec) / 1000000;
+            now.tv_usec += 1000000 * nsec;
+            now.tv_sec -= nsec;
+        }
+    }
+    if (!v3c->logged_in || v3c->timestamp.tv_sec - now.tv_sec < 0) {
+        if (!v3c->logged_in) {
+            gettimeofday(&v3c->timestamp, NULL);
+        } else {
+            _v3_msg_timestamp_put(v3h);
+        }
+        v3c->timestamp.tv_sec += 10;
+        if (tv) {
+            tv->tv_sec = 10;
+            tv->tv_usec = 0;
+        }
+    } else if (tv) {
+        tv->tv_sec = v3c->timestamp.tv_sec - now.tv_sec;
+        tv->tv_usec = v3c->timestamp.tv_usec - now.tv_usec;
+    }
+
+    _v3_leave(v3h, func);
 }
 
 int
@@ -144,7 +189,7 @@ _v3_send(v3_handle v3h, _v3_message *m) {
     memcpy(data + len, m->data, m->len);
     len += m->len;
 
-    //TODO: mutex_lock
+    _v3_mutex_lock(v3h);
 
     v3c = _v3_handles[v3h];
     _v3_debug(v3h, V3_DBG_PACKET, V3_SEND_TCP);
@@ -160,12 +205,12 @@ _v3_send(v3_handle v3h, _v3_message *m) {
     _v3_debug(v3h, V3_DBG_SOCKET, "sending %u bytes; session: %u bytes, %u packets", len, v3c->sent_byte_ctr, v3c->sent_pkt_ctr);
     if (send(v3c->sd, buf, len, 0) < 0) {
         _v3_error(v3h, "failed to send message: %s", strerror(errno));
-        //TODO: mutex_unlock
+        _v3_mutex_unlock(v3h);
         _v3_leave(v3h, func);
         return V3_FAILURE;
     }
 
-    //TODO: mutex_unlock
+    _v3_mutex_unlock(v3h);
 
     _v3_leave(v3h, func);
     return V3_OK;
@@ -185,10 +230,11 @@ _v3_recv(v3_handle v3h, int block) {
     _v3_enter(v3h, func);
 
     v3c = _v3_handles[v3h];
+
     while (_v3_connected(v3h)) {
-        tv.tv_sec = 10;tv.tv_usec = 0;//TODO: timestamp
         FD_ZERO(&rfds);
         FD_SET(v3c->sd, &rfds);
+        _v3_timestamp(v3h, &tv);
         if (block) {
             _v3_debug(v3h, V3_DBG_SOCKET, "waiting for data...");
         }
@@ -200,7 +246,7 @@ _v3_recv(v3_handle v3h, int block) {
             }
             break;
         }
-        //TODO: timestamp
+        _v3_timestamp(v3h, NULL);
         if (!ret && block) {
             continue;
         }
@@ -214,7 +260,7 @@ _v3_recv(v3_handle v3h, int block) {
             if ((ret = recv(v3c->sd, (!m->data) ? &m->len : m->data+ctr, (!m->data) ? sizeof(m->len) : rem, 0)) <= 0) {
                 _v3_error(v3h, (!ret) ? "server closed connection" : strerror(errno));
                 _v3_msg_free(v3h, m);
-                //TODO: close
+                _v3_close(v3h);
                 _v3_leave(v3h, func);
                 return NULL;
             }
@@ -264,39 +310,30 @@ v3_login(v3_handle v3h) {
 
     _v3_mutex_lock(v3h);
 
-    v3c = _v3_handles[v3h];
-    /*if (v3c->connecting) {
-        _v3_mutex_unlock(v3h);
-        _v3_error(v3h, "already connecting; try cancel first");
-        _v3_leave(v3h, func);
-        return V3_FAILURE;
-    } else*/ if (_v3_connected(v3h)) {
+    if (_v3_connected(v3h)) {
         _v3_mutex_unlock(v3h);
         _v3_error(v3h, "already connected; try logout first");
         _v3_leave(v3h, func);
         return V3_FAILURE;
-    } /*else if (_v3_canceling(v3h)) {
-        _v3_mutex_unlock(v3h);
-        _v3_error(v3h, "cancel in progress");
-        _v3_leave(v3h, func);
-        return V3_FAILURE;
-    }*/
+    }
+    v3c = _v3_handles[v3h];
     v3c->connecting = true;
     if (_v3_handshake(v3h) == V3_OK &&
         _v3_connect(v3h, true) == V3_OK &&
-        _v3_send(v3h, (m = _v3_msg_handshake_put(v3h))) == V3_OK) {
-        for (;;) {
-            if (m->type == V3_MSG_SCRAMBLE) {
-                ret = V3_OK;
-                //break;
-            }
-            _v3_msg_free(v3h, m);
+        _v3_msg_handshake_put(v3h) == V3_OK) {
+        while (ret != V3_OK) {
             if (!(m = _v3_recv(v3h, V3_BLOCK)) || _v3_msg_process(v3h, m) == V3_FAILURE) {
+                if (m) {
+                    _v3_msg_free(v3h, m);
+                }
                 break;
             }
+            if (m->type == V3_MSG_SCRAMBLE) {
+                ret = V3_OK;
+            }
+            _v3_msg_free(v3h, m);
         }
     }
-    _v3_msg_free(v3h, m);
     if (ret == V3_FAILURE) {
         _v3_close(v3h);
     }
@@ -335,47 +372,27 @@ v3_login_cancel(v3_handle v3h) {
 }
 
 int
-v3_iterate(v3_handle v3h, uint8_t block) {
+v3_iterate(v3_handle v3h, int block, uint32_t max) {
     const char func[] = "v3_iterate";
 
-    _v3_connection *v3c;
+    _v3_message *m;
+    int ret = V3_OK;
+    uint32_t ctr = 0;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
     _v3_enter(v3h, func);
 
-    v3c = _v3_handles[v3h];
-    if (v3c->connecting) {
-        
+    do {
+        if ((m = _v3_recv(v3h, block))) {
+            ret = (_v3_msg_process(v3h, m) == V3_FAILURE) ? V3_FAILURE : V3_OK;
+            _v3_msg_free(v3h, m);
+        }
     }
+    while (ret == V3_OK && _v3_connected(v3h) && (!max || ++ctr < max) && (block || (!block && m)));
 
     _v3_leave(v3h, func);
-    return V3_OK;
+    return ret;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
