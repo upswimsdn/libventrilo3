@@ -191,6 +191,8 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 speex_CFLAGS = @speex_CFLAGS@
 speex_LIBS = @speex_LIBS@
+speexdsp_CFLAGS = @speexdsp_CFLAGS@
+speexdsp_LIBS = @speexdsp_LIBS@
 srcdir = @srcdir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
@@ -481,8 +483,32 @@ uninstall-am:
 	pdf pdf-am ps ps-am tags uninstall uninstall-am
 
 
+.PHONY: dev jukebox
+
 dev:
-	gcc -pthread -Wall -Wextra -g -I../src -o connection connection.c ../src/.libs/libventrilo3.a
+	cd ../src/ && make dev
+	gcc -pthread -Wall -Wextra -g -I.. -I../src/ -o connection \
+		connection.c \
+		../src/libventrilo3.o \
+		$(speex_LIBS) \
+		$(celt_LIBS) \
+		$(speexdsp_LIBS) \
+		$(LIBS) \
+		-lm
+
+jukebox:
+	cd ../src/ && make dev
+	gcc -pthread -Wall -g -I.. -I../src/ -o jukebox \
+		`if pkg-config flac; then echo -n "-DHAVE_FLAC"; fi` \
+		jukebox.c \
+		../src/libventrilo3.o \
+		$(speex_LIBS) \
+		$(celt_LIBS) \
+		$(speexdsp_LIBS) \
+		-lmpg123 \
+		`if pkg-config flac; then echo -n "-lFLAC"; fi` \
+		$(LIBS) \
+		-lm
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

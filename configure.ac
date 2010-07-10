@@ -37,9 +37,10 @@ AC_CHECK_LIB([m], [tan], [], [
 	exit -1
 	])
 
-AC_ARG_ENABLE(gsm,   [  --disable-gsm           disable GSM codec support],   [disable_gsm=yes])
-AC_ARG_ENABLE(speex, [  --disable-speex         disable Speex codec support], [disable_speex=yes])
-AC_ARG_ENABLE(celt,  [  --disable-celt          disable CELT codec support],  [disable_celt=yes])
+AC_ARG_ENABLE(gsm,      [  --disable-gsm           disable GSM codec support],       [disable_gsm=yes])
+AC_ARG_ENABLE(speex,    [  --disable-speex         disable Speex codec support],     [disable_speex=yes])
+AC_ARG_ENABLE(celt,     [  --disable-celt          disable CELT codec support],      [disable_celt=yes])
+AC_ARG_ENABLE(speexdsp, [  --disable-speexdsp      disable Speex resampler support], [disable_speexdsp=yes])
 
 if test "$enable_gsm" != "no" ; then
 	AC_CHECK_LIB([gsm], [gsm_create], [], [
@@ -48,7 +49,7 @@ if test "$enable_gsm" != "no" ; then
 		exit -1
 		])
 	AC_CHECK_HEADER([gsm.h], [AC_DEFINE(HAVE_GSM_H, 1, [location of gsm.h])], [
-		AC_CHECK_HEADER([gsm/gsm.h], AC_DEFINE(HAVE_GSM_GSM_H, 1, [location of gsm.h]),[
+		AC_CHECK_HEADER([gsm/gsm.h], AC_DEFINE(HAVE_GSM_GSM_H, 1, [location of gsm.h]), [
 			echo "error: found gsm libraries, but headers are missing or corrupt. are you"
 			echo "       missing a libgsm development package?"
 			exit -1
@@ -58,7 +59,6 @@ if test "$enable_gsm" != "no" ; then
 else
 	AC_DEFINE(HAVE_GSM, 0, [have gsm])
 fi
-
 
 # Checks for header files.
 if test "$enable_speex" != "no" ; then
@@ -77,6 +77,15 @@ if test "$enable_celt" != "no" ; then
 	AC_DEFINE(HAVE_CELT, 1, [have celt])
 else
 	AC_DEFINE(HAVE_CELT, 0, [have celt])
+fi
+
+if test "$enable_speexdsp" != "no" ; then
+	PKG_CHECK_MODULES(speexdsp, speexdsp >= 1.2)
+	AC_SUBST(speexdsp_CFLAGS)
+	AC_SUBST(speexdsp_LIBS)
+	AC_DEFINE(HAVE_SPEEXDSP, 1, [have speexdsp])
+else
+	AC_DEFINE(HAVE_SPEEXDSP, 0, [have speexdsp])
 fi
 
 # Checks for typedefs, structures, and compiler characteristics.

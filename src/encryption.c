@@ -49,7 +49,7 @@ _v3_password(v3_handle v3h, const char *password, uint8_t *hash) {
     const char func[] = "_v3_password";
 
     uint32_t crc, i, j, cnt, len;
-    uint8_t  tmp[4] = { 0 };
+    uint8_t tmp[4] = { 0 };
 
     _v3_enter(v3h, func);
 

@@ -103,7 +103,7 @@ _v3_msg_string_put(v3_handle v3h, const char *src, size_t n, void **dest, size_t
     len = strlen(src);
     len = (len > n) ? n : len;
     *dest = realloc(*dest, size + sizeof(len) + len);
-    *((uint16_t *)(*dest + size)) = htons(len);
+    *(uint16_t *)(*dest + size) = htons(len);
     size += sizeof(len);
     memcpy(*dest + size, src, len);
     size += len;
@@ -133,6 +133,26 @@ _v3_msg_uint16_get(v3_handle v3h, const void *src, uint16_t *dest, size_t n, uin
 
     _v3_leave(v3h, func);
     return src;
+}
+
+size_t
+_v3_msg_uint16_put(v3_handle v3h, const uint16_t *src, uint16_t count, void **dest, size_t size) {
+    const char func[] = "_v3_msg_uint16_put";
+
+    uint16_t ctr;
+
+    _v3_enter(v3h, func);
+
+    *dest = realloc(*dest, size + sizeof(count) + sizeof(*src) * count);
+    *(uint16_t *)(*dest + size) = htons(count);
+    size += sizeof(count);
+    for (ctr = 0; ctr < count; ctr++) {
+        *(uint16_t *)(*dest + size) = htons(src[ctr]);
+        size += sizeof(*src);
+    }
+
+    _v3_leave(v3h, func);
+    return size;
 }
 
 const void *
@@ -265,6 +285,29 @@ _v3_msg_handshake_put(v3_handle v3h) {
 }
 
 int
+_v3_msg_move_put(v3_handle v3h, uint16_t id, uint16_t channel) {
+    const char func[] = "_v3_msg_move_put";
+
+    _v3_message *m;
+    _v3_msg_move *mc;
+    int ret;
+
+    _v3_enter(v3h, func);
+
+    m = _v3_msg_alloc(v3h, V3_MSG_MOVE, sizeof(_v3_msg_move), (void **)&mc);
+
+    mc->id = id;
+    mc->channel = channel;
+
+    ret = _v3_send(v3h, m);
+
+    _v3_msg_free(v3h, m);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
 _v3_msg_chat_put(v3_handle v3h, uint16_t subtype, const char *message) {
     const char func[] = "_v3_msg_chat_put";
 
@@ -370,6 +413,7 @@ _v3_msg_chan_list_put(v3_handle v3h, uint16_t subtype, uint16_t user, const char
       case V3_CHAN_REMOVE:
         break;
       case V3_CHAN_CHANGE:
+      case V3_CHAN_KICK:
         mc->user = user;
         if (password && *password) {
             _v3_password(v3h, password, mc->password);
@@ -401,6 +445,49 @@ _v3_msg_timestamp_put(v3_handle v3h) {
     m = _v3_msg_alloc(v3h, V3_MSG_TIMESTAMP, sizeof(_v3_msg_timestamp), (void **)&mc);
 
     mc->timestamp = time(NULL);
+
+    ret = _v3_send(v3h, m);
+
+    _v3_msg_free(v3h, m);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+_v3_msg_audio_put(v3_handle v3h, uint16_t subtype, int16_t index, int16_t format, uint32_t pcmlen, const void *data, uint32_t datalen) {
+    const char func[] = "_v3_msg_audio_put";
+
+    _v3_message *m;
+    _v3_msg_audio *mc;
+    uint16_t method[] = { V3_METHOD_CURRENT };
+    uint16_t dest[] = { 0 };
+    int ret;
+
+    _v3_enter(v3h, func);
+
+    m = _v3_msg_alloc(v3h, V3_MSG_AUDIO, sizeof(_v3_msg_audio), (void **)&mc);
+
+    mc->index = index;
+    mc->format = format;
+    mc->datalen = datalen;
+    mc->pcmlen = pcmlen;
+    switch ((mc->subtype = subtype)) {
+      case V3_AUDIO_START:
+      case V3_AUDIO_DATA:
+        m->len = _v3_msg_uint16_put(v3h, method, sizeof(method) / sizeof(*method), &m->data, m->len);
+        m->len = _v3_msg_uint16_put(v3h, dest, sizeof(dest) / sizeof(*dest), &m->data, m->len);
+        if (subtype == V3_AUDIO_DATA) {
+            m->data = realloc(m->data, m->len + datalen);
+            memcpy(m->data + m->len, data, datalen);
+            m->len += datalen;
+        }
+        break;
+      case V3_AUDIO_STOP:
+        m->len = _v3_msg_uint16_put(v3h, NULL, 0, &m->data, m->len);
+        m->len = _v3_msg_uint16_put(v3h, NULL, 0, &m->data, m->len);
+        break;
+    }
 
     ret = _v3_send(v3h, m);
 
@@ -477,6 +564,63 @@ _v3_msg_user_list_put(v3_handle v3h, uint16_t subtype, const v3_user *u) {
 }
 
 int
+_v3_msg_user_page_put(v3_handle v3h, uint16_t to, uint16_t from) {
+    const char func[] = "_v3_msg_user_page_put";
+
+    _v3_message *m;
+    _v3_msg_user_page *mc;
+    int ret;
+
+    _v3_enter(v3h, func);
+
+    m = _v3_msg_alloc(v3h, V3_MSG_USER_PAGE, sizeof(_v3_msg_user_page), (void **)&mc);
+
+    mc->to = to;
+    mc->from = from;
+
+    ret = _v3_send(v3h, m);
+
+    _v3_msg_free(v3h, m);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+_v3_msg_admin_put(v3_handle v3h, uint16_t subtype, uint16_t user, const void *data) {
+    const char func[] = "_v3_msg_admin_put";
+
+    _v3_message *m;
+    _v3_msg_admin *mc;
+    int ret;
+
+    _v3_enter(v3h, func);
+
+    m = _v3_msg_alloc(v3h, V3_MSG_ADMIN, sizeof(_v3_msg_admin), (void **)&mc);
+
+    switch ((mc->subtype = subtype)) {
+      case V3_ADMIN_LOGIN:
+        _v3_password(v3h, data, mc->data);
+        break;
+      case V3_ADMIN_LOGOUT:
+        break;
+      case V3_ADMIN_KICK:
+      case V3_ADMIN_BAN:
+      case V3_ADMIN_CHAN_BAN:
+        mc->user = user;
+        _v3_strncpy((void *)mc->data, data, sizeof(mc->data) - 1);
+        break;
+    }
+
+    ret = _v3_send(v3h, m);
+
+    _v3_msg_free(v3h, m);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
 _v3_msg_process(v3_handle v3h, _v3_message *m) {
     const char func[] = "_v3_msg_process";
 
@@ -492,11 +636,14 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
       case V3_MSG_AUTH:
         {
             _v3_msg_auth *mc = m->data;
+            v3_event ev = { .type = 0 };
 
             switch (mc->subtype) {
               case V3_AUTH_DISCONNECT:
+                ev.type = V3_EVENT_LOGOUT;
                 break;
               case V3_AUTH_ADMIN:
+                ev.type = V3_EVENT_ADMIN_AUTH;
                 break;
               case V3_AUTH_KEYS:
                 v3c->client_key = calloc(1, sizeof(ventrilo_key_ctx));
@@ -505,8 +652,8 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                         v3h,
                         v3c->client_key,
                         v3c->server_key,
-                        &mc->key,
-                        m->len - ((void *)&mc->key - m->data)) != V3_OK) {
+                        m->data + sizeof(_v3_msg_auth),
+                        m->len - sizeof(_v3_msg_auth)) != V3_OK) {
                     _v3_error(v3h, "failed to retrieve encryption keys");
                     ret = V3_FAILURE;
                     break;
@@ -523,6 +670,9 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                 _v3_debug(v3h, V3_DBG_MESSAGE, "message type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
                 ret = V3_NOTIMPL;
                 break;
+            }
+            if (ev.type) {
+                _v3_event_push(v3h, &ev);
             }
         }
         break;
@@ -616,11 +766,22 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     if (!ev.type) {
                         ev.type = V3_EVENT_RANK_ADD;
                     }
+                  case V3_RANK_REMOVE:
+                    if (!ev.type) {
+                        ev.type = V3_EVENT_RANK_REMOVE;
+                    }
                   case V3_RANK_UPDATE:
                     if (!ev.type) {
                         ev.type = V3_EVENT_RANK_UPDATE;
                     }
-                    _v3_data(v3h, V3_DATA_UPDATE, V3_DATA_TYPE_RANK, &r);
+                    _v3_data(
+                            v3h,
+                            (mc->subtype == V3_RANK_REMOVE)
+                                ? V3_DATA_REMOVE
+                                : V3_DATA_UPDATE,
+                            V3_DATA_TYPE_RANK,
+                            &r,
+                            (void *)&r._strings_ - (void *)&r);
                     ev.rank = r;
                     ev.rank.next = NULL;
                     break;
@@ -653,23 +814,23 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
             _v3_event_push(v3h, &ev);
         }
         break;
-      case V3_MSG_CHAN_MOVE:
+      case V3_MSG_MOVE:
         {
-            _v3_msg_chan_move *mc = m->data;
+            _v3_msg_move *mc = m->data;
             v3_user u = { .id = mc->id };
             v3_channel c = { .id = mc->id };
             v3_event ev = { .type = 0 };
 
             _v3_mutex_lock(v3h);
 
-            _v3_debug(v3h, V3_DBG_MESSAGE, "channel move: id: %u | channel: %u | error: %u", mc->id, mc->channel, mc->error);
-            if (_v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_USER, &u) == V3_OK) {
+            _v3_debug(v3h, V3_DBG_MESSAGE, "move: id: %u | channel: %u | error: %u", mc->id, mc->channel, mc->error);
+            if (_v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_USER, &u, 0) == V3_OK) {
                 ev.type = V3_EVENT_CHAN_CHANGE;
                 ev.user = u;
                 ev.user.next = NULL;
                 u.next->channel = mc->channel;
                 ev.user.channel = mc->channel;
-            } else if (_v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_CHANNEL, &c) == V3_OK) {
+            } else if (_v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_CHANNEL, &c, 0) == V3_OK) {
                 ev.type = V3_EVENT_CHAN_MOVE;
             }
             if (ev.type) {
@@ -695,7 +856,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
             v3_event ev = { .type = 0 };
 
             _v3_debug(v3h, V3_DBG_MESSAGE, "chat: user: %u | subtype: %u", mc->user, mc->subtype);
-            if (_v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_USER, &u) == V3_OK) {
+            if (_v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_USER, &u, 0) == V3_OK) {
                 ev.user = u;
                 ev.user.next = NULL;
                 switch (mc->subtype) {
@@ -744,7 +905,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
             _v3_mutex_lock(v3h);
 
             _v3_debug(v3h, V3_DBG_MESSAGE, "user option: user: %u | subtype: %u | value: %u", mc->user, mc->subtype, mc->value);
-            if (_v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_USER, &u) == V3_OK) {
+            if (_v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_USER, &u, 0) == V3_OK) {
                 ev.user = u;
                 ev.user.next = NULL;
                 switch (mc->subtype) {
@@ -807,7 +968,14 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                 if (!ev.type) {
                     ev.type = V3_EVENT_CHAN_UPDATE;
                 }
-                _v3_data(v3h, (mc->subtype == V3_CHAN_REMOVE) ? V3_DATA_REMOVE : V3_DATA_UPDATE, V3_DATA_TYPE_CHANNEL, &c);
+                _v3_data(
+                        v3h,
+                        (mc->subtype == V3_CHAN_REMOVE)
+                            ? V3_DATA_REMOVE
+                            : V3_DATA_UPDATE,
+                        V3_DATA_TYPE_CHANNEL,
+                        &c,
+                        (void *)&c._strings_ - (void *)&c);
               case V3_CHAN_AUTH:
                 if (!ev.type) {
                     ev.type = V3_EVENT_CHAN_AUTH;
@@ -887,7 +1055,6 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     mc->version);
             v3c->licensed = mc->licensed;
             v3c->slots = mc->slots;
-            v3c->clients = mc->clients;
             strncpy(v3c->name, mc->name, sizeof(v3c->name) - 1);
             strncpy(v3c->version, mc->version, sizeof(v3c->version) - 1);
         }
@@ -968,7 +1135,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     }
                     mc->property++;
                 } else {
-                
+                    //TODO
                 }
                 break;
             }
@@ -977,10 +1144,12 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
       case V3_MSG_AUDIO:
         {
             _v3_msg_audio *mc = m->data;
+            const void *ptr;
             v3_user u = { .id = mc->user };
+            float *volume[] = { &u.volume, &v3c->volume, &_volume };
             v3_event ev = { .type = 0 };
 
-            if (_v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_USER, &u) == V3_OK) {
+            if (_v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_USER, &u, 0) == V3_OK) {
                 ev.user = u;
                 ev.user.next = NULL;
                 switch (mc->subtype) {
@@ -1001,9 +1170,11 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     }
                   case V3_AUDIO_DATA:
                     if (ev.type || u.muted_local) {
-                        _v3_decoder_destroy(v3h, &u.next->decoder);
+                        _v3_coder_destroy(v3h, &u.next->decoder);
                         break;
                     }
+                    ptr = _v3_msg_uint16_get(v3h, m->data + sizeof(_v3_msg_audio), NULL, 0, NULL);
+                    ptr = _v3_msg_uint16_get(v3h, ptr, NULL, 0, NULL);
                     ev.data.pcm.length = sizeof(ev.data.pcm.sample);
                     ev.data.pcm.channels = (mc->pcmlen - 2000 == 2) ? 2 : 1;
                     if (_v3_audio_decode(
@@ -1011,12 +1182,18 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                             mc->index,
                             mc->format,
                             &u.next->decoder,
-                            m->data + sizeof(_v3_msg_audio),
-                            m->len - sizeof(_v3_msg_audio),
+                            ptr,
+                            m->len - (ptr - m->data),
                             ev.data.pcm.sample,
                             &ev.data.pcm.length,
                             &ev.data.pcm.rate,
                             ev.data.pcm.channels) == V3_OK) {
+                        _v3_audio_amplify(
+                                v3h,
+                                (void *)ev.data.pcm.sample,
+                                ev.data.pcm.length,
+                                volume,
+                                sizeof(volume) / sizeof(*volume));
                         ev.type = V3_EVENT_AUDIO_RECV;
                     }
                     break;
@@ -1043,7 +1220,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
             _v3_mutex_lock(v3h);
 
             _v3_debug(v3h, V3_DBG_MESSAGE, "channel change: user: %u | channel: %u", mc->user, mc->channel);
-            if (_v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_USER, &u) == V3_OK) {
+            if (_v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_USER, &u, 0) == V3_OK) {
                 ev.user = u;
                 ev.user.next = NULL;
                 u.next->channel = mc->channel;
@@ -1108,7 +1285,17 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     if (!ev.type) {
                         ev.type = V3_EVENT_USER_RANK;
                     }
-                    _v3_data(v3h, (mc->subtype == V3_USER_REMOVE) ? V3_DATA_REMOVE : V3_DATA_UPDATE, V3_DATA_TYPE_USER, &u);
+                    if (mc->subtype == V3_USER_LIST || mc->subtype == V3_USER_ADD) {
+                        u.volume = 1.0;
+                    }
+                    _v3_data(
+                            v3h,
+                            (mc->subtype == V3_USER_REMOVE)
+                                ? V3_DATA_REMOVE
+                                : V3_DATA_UPDATE,
+                            V3_DATA_TYPE_USER,
+                            &u,
+                            (void *)&u._strings_ - (void *)&u);
                     if ((!v3c->luser.id && ctr == 1) || (v3c->luser.id && u.id == v3c->luser.id)) {
                         memcpy(&v3c->luser, &u, (void *)&u._internal_ - (void *)&u);
                     }
@@ -1147,13 +1334,26 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                         c.name,
                         c.phonetic,
                         c.comment);
-                _v3_data(v3h, V3_DATA_UPDATE, V3_DATA_TYPE_CHANNEL, &c);
+                _v3_data(v3h, V3_DATA_UPDATE, V3_DATA_TYPE_CHANNEL, &c, (void *)&c._strings_ - (void *)&c);
                 ev.channel = c;
                 ev.channel.next = NULL;
                 _v3_event_push(v3h, &ev);
             }
 
             _v3_mutex_unlock(v3h);
+        }
+        break;
+      case V3_MSG_USER_PAGE:
+        {
+            _v3_msg_user_page *mc = m->data;
+            v3_user u = { .id = mc->from };
+            v3_event ev = { .type = V3_EVENT_USER_PAGE };
+
+            _v3_debug(v3h, V3_DBG_MESSAGE, "user page: to: %u | from: %u", mc->to, mc->from);
+            if (_v3_data(v3h, V3_DATA_COPY, V3_DATA_TYPE_USER, &u, 0) == V3_OK) {
+                ev.user = u;
+                _v3_event_push(v3h, &ev);
+            }
         }
         break;
       default:

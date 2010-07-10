@@ -48,6 +48,7 @@ _v3_connection *_v3_handles[V3_MAX_CONN] = { NULL };
 int16_t  _stack      = 0;
 uint16_t _debug      = V3_DBG_NONE;
 char     _error[256] = "";
+float    _volume     = 1.0;
 
 struct _v3_connection {
     int16_t             stack;
@@ -89,7 +90,6 @@ struct _v3_connection {
 
     uint16_t            licensed;
     uint16_t            slots;
-    uint16_t            clients;
 
     char                name[32];
     char                platform[32];
@@ -104,8 +104,18 @@ struct _v3_connection {
     pthread_mutex_t *   event_mutex;
     pthread_cond_t *    event_cond;
 
-    char                motd[32768];
-    char                motd_guest[32768];
+    float               volume;
+    v3_coder            encoder;
+#if HAVE_SPEEXDSP
+    struct {
+        void *          state;
+        uint32_t        in_rate;
+        uint32_t        out_rate;
+        uint8_t         channels;
+    } resampler;
+#endif
+    uint8_t             pcmq[1 << 16];
+    uint32_t            pcmqueued;
 
     v3_prop             prop;
     uint16_t            transaction;
@@ -300,16 +310,33 @@ int         _v3_mutex_unlock(v3_handle v3h);
 char *      _v3_strncpy(char *dest, const char *src, size_t n);
 
 /* data.c */
-int         _v3_data(v3_handle v3h, int oper, int type, void *data);
+int         _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n);
 
 /* dsp.c */
+void        _v3_audio_amplify(v3_handle v3h, int16_t *pcm, uint32_t pcmlen, float **volume, size_t count);
+int         _v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, uint32_t pcmlen);
+int         _v3_audio_encode(
+                    v3_handle v3h,
+                    /* pcm input */
+                    const uint8_t *pcm,
+                    uint32_t pcmlen,
+                    /* encoded output */
+                    int16_t index,
+                    int16_t format,
+                    v3_coder *coder,
+                    uint8_t *data,
+                    uint32_t *datalen,
+                    /* optional args */
+                    uint8_t channels,
+                    uint16_t *framecount,
+                    uint8_t *celtfragsize);
 int         _v3_audio_decode(
                     v3_handle v3h,
                     /* encoded input */
                     int16_t index,
                     int16_t format,
                     v3_coder *coder,
-                    uint8_t *data,
+                    const uint8_t *data,
                     int32_t datalen,
                     /* pcm output */
                     uint8_t *pcm,
@@ -334,10 +361,14 @@ int         _v3_udp_send(v3_handle v3h, int sd, uint32_t vnum, uint32_t ip, uint
 int         _v3_udp_recv(v3_handle v3h, int sd, uint8_t *data, uint32_t maxsz, const ventrilo3_auth_t *vauth, uint16_t *handshake_idx);
 
 /* message.c */
+int         _v3_msg_move_put(v3_handle v3h, uint16_t id, uint16_t channel);
 int         _v3_msg_chat_put(v3_handle v3h, uint16_t subtype, const char *message);
 int         _v3_msg_user_option_put(v3_handle v3h, uint16_t user_id, uint16_t subtype, uint32_t value);
 int         _v3_msg_chan_list_put(v3_handle v3h, uint16_t subtype, uint16_t user, const char *password, const v3_channel *c);
+int         _v3_msg_audio_put(v3_handle v3h, uint16_t subtype, int16_t index, int16_t format, uint32_t pcmlen, const void *data, uint32_t datalen);
 int         _v3_msg_user_list_put(v3_handle v3h, uint16_t subtype, const v3_user *u);
+int         _v3_msg_user_page_put(v3_handle v3h, uint16_t to, uint16_t from);
+int         _v3_msg_admin_put(v3_handle v3h, uint16_t subtype, uint16_t user, const void *data);
 
 /* network.c */
 int         _v3_connected(v3_handle v3h);

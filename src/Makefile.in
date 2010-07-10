@@ -72,7 +72,7 @@ am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 am__DEPENDENCIES_1 =
 libventrilo3_la_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1)
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am_libventrilo3_la_OBJECTS = libventrilo3.lo
 libventrilo3_la_OBJECTS = $(am_libventrilo3_la_OBJECTS)
 libventrilo3_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
@@ -217,6 +217,8 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 speex_CFLAGS = @speex_CFLAGS@
 speex_LIBS = @speex_LIBS@
+speexdsp_CFLAGS = @speexdsp_CFLAGS@
+speexdsp_LIBS = @speexdsp_LIBS@
 srcdir = @srcdir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
@@ -227,7 +229,7 @@ ACLOCAL_AMFLAGS = -I m4
 lib_LTLIBRARIES = libventrilo3.la
 libventrilo3_la_SOURCES = libventrilo3.c libventrilo3.h
 libventrilo3_la_LDFLAGS = -version-info 1:0:0
-libventrilo3_la_LIBADD = $(gsm_LIBS) $(speex_LIBS) $(celt_LIBS) -lm
+libventrilo3_la_LIBADD = $(speex_LIBS) $(celt_LIBS) $(speexdsp_LIBS) -lm
 all: all-am
 
 .SUFFIXES:
@@ -532,6 +534,8 @@ uninstall-am: uninstall-libLTLIBRARIES
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	tags uninstall uninstall-am uninstall-libLTLIBRARIES
 
+
+.PHONY: dev
 
 dev:
 	gcc -pthread -Wall -Wextra -g -c -I. -I.. -o libventrilo3.o libventrilo3.c

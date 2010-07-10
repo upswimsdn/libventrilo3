@@ -74,6 +74,9 @@
 /* have speex */
 #undef HAVE_SPEEX
 
+/* have speexdsp */
+#undef HAVE_SPEEXDSP
+
 /* Define to 1 if stdbool.h conforms to C99. */
 #undef HAVE_STDBOOL_H
 

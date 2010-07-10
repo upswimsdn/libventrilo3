@@ -35,7 +35,7 @@ enum {
     V3_MSG_RANK_LIST    = 0x36,
     V3_MSG_PING         = 0x37,
     V3_MSG_TTS          = 0x3a,
-    V3_MSG_CHAN_MOVE    = 0x3b,
+    V3_MSG_MOVE         = 0x3b,
     V3_MSG_SRV_CODEC    = 0x3c,
     V3_MSG_WAV          = 0x3f,
     V3_MSG_CHAT         = 0x42,
@@ -58,7 +58,7 @@ enum {
     V3_MSG_USER_LIST    = 0x5d,
     V3_MSG_LIST_CHAN    = 0x60,
     V3_MSG_BAN_LIST     = 0x61,
-    V3_MSG_PAGE         = 0x62,
+    V3_MSG_USER_PAGE    = 0x62,
     V3_MSG_ADMIN        = 0x63
 };
 
@@ -69,7 +69,7 @@ enum {
     V2_MSG_SRV_INFO     = 0x34,
     V2_MSG_LOGIN        = 0x36,
     V2_MSG_ERROR        = 0x3a,
-    V2_MSG_PAGE         = 0x3c,
+    V2_MSG_USER_PAGE    = 0x3c,
     V2_MSG_CHAT         = 0x43,
     V2_MSG_USER_LIST    = 0x44,
     V2_MSG_CHAN_LIST    = 0x46,
@@ -115,7 +115,8 @@ enum {
     V3_CHAN_REMOVE      = 0x02,
     V3_CHAN_CHANGE      = 0x03,
     V3_CHAN_UPDATE      = 0x05,
-    V3_CHAN_AUTH        = 0x07
+    V3_CHAN_AUTH        = 0x07,
+    V3_CHAN_KICK        = 0x09
 };
 
 enum {
@@ -147,11 +148,27 @@ enum {
 };
 
 enum {
+    V3_METHOD_CURRENT   = 0x02,
+    V3_METHOD_CHANNEL   = 0x03,
+    V3_METHOD_NEST      = 0x04,
+    V3_METHOD_USER      = 0x05,
+    V3_METHOD_VOICE     = 0x06
+};
+
+enum {
     V3_USER_REMOVE      = 0x00,
     V3_USER_ADD         = 0x01,
     V3_USER_UPDATE      = 0x02,
     V3_USER_LIST        = 0x04,
     V3_USER_RANK        = 0x06
+};
+
+enum {
+    V3_ADMIN_LOGIN      = 0x00,
+    V3_ADMIN_KICK       = 0x01,
+    V3_ADMIN_BAN        = 0x03,
+    V3_ADMIN_LOGOUT     = 0x04,
+    V3_ADMIN_CHAN_BAN   = 0x05
 };
 
 typedef struct {
@@ -161,10 +178,9 @@ typedef struct {
 } PACK _v3_msg_handshake;
 
 typedef struct {
-    uint16_t unknown_1;     // 4
+    uint16_t unknown;       // 4
     uint16_t error;         // 6
     uint32_t subtype;       // 8
-    uint8_t  key;           // 12
 } PACK _v3_msg_auth;
 
 typedef struct {
@@ -191,7 +207,7 @@ typedef struct {
     uint16_t id;            // 4
     uint16_t channel;       // 6
     uint32_t error;         // 8
-} PACK _v3_msg_chan_move;
+} PACK _v3_msg_move;
 
 typedef struct {
     uint16_t unknown_1;     // 4
@@ -204,7 +220,7 @@ typedef struct {
 typedef struct {
     uint16_t user;          // 4
     uint16_t subtype;       // 6
-    uint32_t unknown_1;     // 8
+    uint32_t unknown;       // 8
 } PACK _v3_msg_chat;
 
 typedef struct {
@@ -264,11 +280,9 @@ typedef struct {
     int16_t  index;         // 8
     int16_t  format;        // 10
     uint16_t method;        // 12
-    uint16_t unknown_1;     // 14
-    uint32_t length;        // 16
+    uint16_t unknown;       // 14
+    uint32_t datalen;       // 16
     uint32_t pcmlen;        // 20
-    uint16_t int16_array_1; //TODO 24
-    uint16_t int16_array_2; //TODO 26
 } PACK _v3_msg_audio;
 
 typedef struct {
@@ -302,6 +316,19 @@ typedef struct {
 typedef struct {
     uint32_t count;         // 4
 } PACK _v3_msg_list_chan;
+
+typedef struct {
+    uint16_t to;            // 4
+    uint16_t from;          // 6
+    uint32_t error;         // 8
+} PACK _v3_msg_user_page;
+
+typedef struct {
+    uint16_t subtype;       // 4
+    uint16_t user;          // 6
+    uint32_t unused;        // 8
+    uint8_t  data[128];     // 12
+} PACK _v3_msg_admin;
 
 #endif
 

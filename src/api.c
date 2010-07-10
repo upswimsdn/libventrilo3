@@ -205,9 +205,30 @@ v3_user_mute(v3_handle v3h, uint16_t id, uint8_t mute) {
 
     _v3_mutex_lock(v3h);
 
-    if ((ret = _v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_USER, &u)) == V3_OK) {
+    if ((ret = _v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_USER, &u, 0)) == V3_OK) {
         u.next->muted_local = mute;
     }
+
+    _v3_mutex_unlock(v3h);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_user_page(v3_handle v3h, uint16_t id) {
+    const char func[] = "v3_user_page";
+
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    _v3_mutex_lock(v3h);
+
+    ret = _v3_msg_user_page_put(v3h, id, v3_luser_id(v3h));
 
     _v3_mutex_unlock(v3h);
 
@@ -266,10 +287,229 @@ v3_chat_message(v3_handle v3h, const char *message) {
     return ret;
 }
 
+int
+v3_audio_start(v3_handle v3h) {
+    const char func[] = "v3_audio_start";
 
+    _v3_connection *v3c;
+    const v3_codec *codec;
+    int ret;
 
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
 
+    v3c = _v3_handles[v3h];
+    codec = v3_codec_channel_get(v3h, v3c->luser.channel);
+    ret = _v3_msg_audio_put(v3h, V3_AUDIO_START, codec->index, codec->format, 0, NULL, 0);
 
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_audio_stop(v3_handle v3h) {
+    const char func[] = "v3_audio_stop";
+
+    _v3_connection *v3c;
+    const v3_codec *codec;
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    v3c = _v3_handles[v3h];
+    v3c->pcmqueued = 0;
+    codec = v3_codec_channel_get(v3h, v3c->luser.channel);
+    ret = _v3_msg_audio_put(v3h, V3_AUDIO_STOP, codec->index, codec->format, 0, NULL, 0);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, uint32_t pcmlen) {
+    const char func[] = "v3_audio_send";
+
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    ret = _v3_audio_send(v3h, rate, channels, pcm, pcmlen);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_admin_login(v3_handle v3h, const char *password) {
+    const char func[] = "v3_admin_login";
+
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    ret = _v3_msg_admin_put(v3h, V3_ADMIN_LOGIN, 0, password);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_admin_logout(v3_handle v3h) {
+    const char func[] = "v3_admin_logout";
+
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    ret = _v3_msg_admin_put(v3h, V3_ADMIN_LOGOUT, 0, NULL);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_admin_channel_kick(v3_handle v3h, uint16_t id) {
+    const char func[] = "v3_admin_channel_kick";
+
+    v3_user u = { .id = id };
+    v3_channel c = { .id = 0 };
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    if ((ret = _v3_data(v3h, V3_DATA_COPY, V3_DATA_TYPE_USER, &u, 0)) == V3_OK) {
+        c.id = u.channel;
+        ret = _v3_msg_chan_list_put(v3h, V3_CHAN_KICK, id, NULL, &c);
+    }
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_admin_channel_ban(v3_handle v3h, uint16_t id, const char *reason) {
+    const char func[] = "v3_admin_channel_ban";
+
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    ret = _v3_msg_admin_put(v3h, V3_ADMIN_CHAN_BAN, id, reason);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_admin_kick(v3_handle v3h, uint16_t id, const char *reason) {
+    const char func[] = "v3_admin_kick";
+
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    ret = _v3_msg_admin_put(v3h, V3_ADMIN_KICK, id, reason);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_admin_ban(v3_handle v3h, uint16_t id, const char *reason) {
+    const char func[] = "v3_admin_ban";
+
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    ret = _v3_msg_admin_put(v3h, V3_ADMIN_BAN, id, reason);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_admin_move(v3_handle v3h, uint16_t src, uint16_t dest) {
+    const char func[] = "v3_admin_move";
+
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    ret = _v3_msg_move_put(v3h, src, dest);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_admin_mute_channel(v3_handle v3h, uint16_t id) {
+    const char func[] = "v3_admin_mute_channel";
+
+    v3_user u = { .id = id };
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    if ((ret = _v3_data(v3h, V3_DATA_COPY, V3_DATA_TYPE_USER, &u, 0)) == V3_OK) {
+        ret = _v3_msg_user_option_put(v3h, id, V3_USER_CHANNEL_MUTE, !u.muted_channel);
+    }
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_admin_mute_global(v3_handle v3h, uint16_t id) {
+    const char func[] = "v3_admin_mute_global";
+
+    v3_user u = { .id = id };
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    if ((ret = _v3_data(v3h, V3_DATA_COPY, V3_DATA_TYPE_USER, &u, 0)) == V3_OK) {
+        ret = _v3_msg_user_option_put(v3h, id, V3_USER_GLOBAL_MUTE, !u.muted_global);
+    }
+
+    _v3_leave(v3h, func);
+    return ret;
+}
 
 
 

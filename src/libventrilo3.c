@@ -37,6 +37,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <errno.h>
+#include <math.h>
 
 #ifdef WIN32
 # include <winsock.h>
@@ -60,7 +61,7 @@
 #if HAVE_SPEEX
 # include <speex/speex.h>
 #endif
-#if HAVE_SPEEX_DSP
+#if HAVE_SPEEXDSP
 # include <speex/speex_resampler.h>
 #endif
 
@@ -123,6 +124,8 @@ v3_init(const char *server, const char *username) {
     v3c->ip = ip;
     v3c->port = port;
     v3c->sd = -1;
+    v3c->luser.volume = 1.0;
+    v3c->volume = 1.0;
     memcpy(v3c->luser.name, username, sizeof(v3c->luser.name) - 1);
     _v3_debug(V3_HANDLE_NONE, V3_DBG_INFO, "username: '%s'", v3c->luser.name);
 
@@ -647,7 +650,7 @@ _v3_strncpy(char *dest, const char *src, size_t n) {
     uint8_t *_dest = (uint8_t *)dest;
     uint8_t *_src = (uint8_t *)src;
 
-    while (n --> 0) {
+    while (n--) {
         if ((*_dest++ = (*_src && *_src < 0x20) ? 0x20 : *_src)) {
             _src++;
         }

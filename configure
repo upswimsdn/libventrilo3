@@ -747,6 +747,8 @@ ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
+speexdsp_LIBS
+speexdsp_CFLAGS
 celt_LIBS
 celt_CFLAGS
 speex_LIBS
@@ -886,6 +888,7 @@ enable_maintainer_mode
 enable_gsm
 enable_speex
 enable_celt
+enable_speexdsp
 '
       ac_precious_vars='build_alias
 host_alias
@@ -904,7 +907,9 @@ PKG_CONFIG
 speex_CFLAGS
 speex_LIBS
 celt_CFLAGS
-celt_LIBS'
+celt_LIBS
+speexdsp_CFLAGS
+speexdsp_LIBS'
 
 
 # Initialize some variables set by options.
@@ -1536,6 +1541,7 @@ Optional Features:
   --disable-gsm           disable GSM codec support
   --disable-speex         disable Speex codec support
   --disable-celt          disable CELT codec support
+  --disable-speexdsp      disable Speex resampler support
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1562,6 +1568,10 @@ Some influential environment variables:
   speex_LIBS  linker flags for speex, overriding pkg-config
   celt_CFLAGS C compiler flags for celt, overriding pkg-config
   celt_LIBS   linker flags for celt, overriding pkg-config
+  speexdsp_CFLAGS
+              C compiler flags for speexdsp, overriding pkg-config
+  speexdsp_LIBS
+              linker flags for speexdsp, overriding pkg-config
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -4145,13 +4155,13 @@ if test "${lt_cv_nm_interface+set}" = set; then :
 else
   lt_cv_nm_interface="BSD nm"
   echo "int some_variable = 0;" > conftest.$ac_ext
-  (eval echo "\"\$as_me:4148: $ac_compile\"" >&5)
+  (eval echo "\"\$as_me:4158: $ac_compile\"" >&5)
   (eval "$ac_compile" 2>conftest.err)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:4151: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
+  (eval echo "\"\$as_me:4161: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
   (eval "$NM \"conftest.$ac_objext\"" 2>conftest.err > conftest.out)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:4154: output\"" >&5)
+  (eval echo "\"\$as_me:4164: output\"" >&5)
   cat conftest.out >&5
   if $GREP 'External.*some_variable' conftest.out > /dev/null; then
     lt_cv_nm_interface="MS dumpbin"
@@ -5357,7 +5367,7 @@ ia64-*-hpux*)
   ;;
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 5360 "configure"' > conftest.$ac_ext
+  echo '#line 5370 "configure"' > conftest.$ac_ext
   if { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_compile\""; } >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -6887,11 +6897,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:6890: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:6900: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:6894: \$? = $ac_status" >&5
+   echo "$as_me:6904: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -7226,11 +7236,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:7229: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:7239: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:7233: \$? = $ac_status" >&5
+   echo "$as_me:7243: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -7331,11 +7341,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:7334: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:7344: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:7338: \$? = $ac_status" >&5
+   echo "$as_me:7348: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -7386,11 +7396,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:7389: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:7399: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:7393: \$? = $ac_status" >&5
+   echo "$as_me:7403: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -9770,7 +9780,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 9773 "configure"
+#line 9783 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -9866,7 +9876,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 9869 "configure"
+#line 9879 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -13324,11 +13334,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:13327: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:13337: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:13331: \$? = $ac_status" >&5
+   echo "$as_me:13341: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -13423,11 +13433,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:13426: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:13436: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:13430: \$? = $ac_status" >&5
+   echo "$as_me:13440: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -13475,11 +13485,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:13478: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:13488: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:13482: \$? = $ac_status" >&5
+   echo "$as_me:13492: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -15744,6 +15754,11 @@ if test "${enable_celt+set}" = set; then :
   enableval=$enable_celt; disable_celt=yes
 fi
 
+# Check whether --enable-speexdsp was given.
+if test "${enable_speexdsp+set}" = set; then :
+  enableval=$enable_speexdsp; disable_speexdsp=yes
+fi
+
 
 if test "$enable_gsm" != "no" ; then
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for gsm_create in -lgsm" >&5
@@ -15830,7 +15845,6 @@ else
 $as_echo "#define HAVE_GSM 0" >>confdefs.h
 
 fi
-
 
 # Checks for header files.
 if test "$enable_speex" != "no" ; then
@@ -16150,6 +16164,108 @@ $as_echo "#define HAVE_CELT 1" >>confdefs.h
 else
 
 $as_echo "#define HAVE_CELT 0" >>confdefs.h
+
+fi
+
+if test "$enable_speexdsp" != "no" ; then
+
+pkg_failed=no
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for speexdsp" >&5
+$as_echo_n "checking for speexdsp... " >&6; }
+
+if test -n "$PKG_CONFIG"; then
+    if test -n "$speexdsp_CFLAGS"; then
+        pkg_cv_speexdsp_CFLAGS="$speexdsp_CFLAGS"
+    else
+        if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"speexdsp >= 1.2\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "speexdsp >= 1.2") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_speexdsp_CFLAGS=`$PKG_CONFIG --cflags "speexdsp >= 1.2" 2>/dev/null`
+else
+  pkg_failed=yes
+fi
+    fi
+else
+	pkg_failed=untried
+fi
+if test -n "$PKG_CONFIG"; then
+    if test -n "$speexdsp_LIBS"; then
+        pkg_cv_speexdsp_LIBS="$speexdsp_LIBS"
+    else
+        if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"speexdsp >= 1.2\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "speexdsp >= 1.2") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_speexdsp_LIBS=`$PKG_CONFIG --libs "speexdsp >= 1.2" 2>/dev/null`
+else
+  pkg_failed=yes
+fi
+    fi
+else
+	pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+	        speexdsp_PKG_ERRORS=`$PKG_CONFIG --short-errors --errors-to-stdout --print-errors "speexdsp >= 1.2"`
+        else
+	        speexdsp_PKG_ERRORS=`$PKG_CONFIG --errors-to-stdout --print-errors "speexdsp >= 1.2"`
+        fi
+	# Put the nasty error message in config.log where it belongs
+	echo "$speexdsp_PKG_ERRORS" >&5
+
+	as_fn_error "Package requirements (speexdsp >= 1.2) were not met:
+
+$speexdsp_PKG_ERRORS
+
+Consider adjusting the PKG_CONFIG_PATH environment variable if you
+installed software in a non-standard prefix.
+
+Alternatively, you may set the environment variables speexdsp_CFLAGS
+and speexdsp_LIBS to avoid the need to call pkg-config.
+See the pkg-config man page for more details.
+" "$LINENO" 5
+elif test $pkg_failed = untried; then
+	{ { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error "The pkg-config script could not be found or is too old.  Make sure it
+is in your PATH or set the PKG_CONFIG environment variable to the full
+path to pkg-config.
+
+Alternatively, you may set the environment variables speexdsp_CFLAGS
+and speexdsp_LIBS to avoid the need to call pkg-config.
+See the pkg-config man page for more details.
+
+To get pkg-config, see <http://pkg-config.freedesktop.org/>.
+See \`config.log' for more details." "$LINENO" 5; }
+else
+	speexdsp_CFLAGS=$pkg_cv_speexdsp_CFLAGS
+	speexdsp_LIBS=$pkg_cv_speexdsp_LIBS
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+	:
+fi
+
+
+
+$as_echo "#define HAVE_SPEEXDSP 1" >>confdefs.h
+
+else
+
+$as_echo "#define HAVE_SPEEXDSP 0" >>confdefs.h
 
 fi
 
