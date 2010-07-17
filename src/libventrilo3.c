@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
 #include <errno.h>
@@ -41,8 +42,8 @@
 
 #ifdef WIN32
 # include <winsock.h>
+# define SHUT_WR SD_SEND
 #else
-# include <unistd.h>
 # include <sys/socket.h>
 # include <sys/types.h>
 # include <netinet/in.h>
@@ -115,11 +116,10 @@ v3_init(const char *server, const char *username) {
         _v3_leave(V3_HANDLE_NONE, func);
         return V3_HANDLE_NONE;
     }
-    _v3_handles[v3h] = malloc(sizeof(_v3_connection));
+    _v3_handles[v3h] = calloc(1, sizeof(_v3_connection));
 
     _v3_mutex_unlock(V3_HANDLE_NONE);
 
-    memset(_v3_handles[v3h], 0, sizeof(_v3_connection));
     v3c = _v3_handles[v3h];
     v3c->ip = ip;
     v3c->port = port;
@@ -128,6 +128,7 @@ v3_init(const char *server, const char *username) {
     v3c->volume = 1.0;
     memcpy(v3c->luser.name, username, sizeof(v3c->luser.name) - 1);
     _v3_debug(V3_HANDLE_NONE, V3_DBG_INFO, "username: '%s'", v3c->luser.name);
+    _v3_mutex_init(v3h);
 
     _v3_leave(V3_HANDLE_NONE, func);
     return v3h;
@@ -181,6 +182,8 @@ void
 v3_destroy(v3_handle v3h) {
     const char func[] = "v3_destroy";
 
+    _v3_connection *v3c;
+
     _v3_enter(V3_HANDLE_NONE, func);
 
     if (_v3_handle_valid(v3h) != V3_OK) {
@@ -192,8 +195,24 @@ v3_destroy(v3_handle v3h) {
 
     _v3_enter(v3h, func);
 
+    _v3_mutex_lock(v3h);
+
+    v3c = _v3_handles[v3h];
+
     _v3_close(v3h);
+#if HAVE_SPEEXDSP
+    if (v3c->resampler.state) {
+        speex_resampler_destroy(v3c->resampler.state);
+    }
+#endif
+    _v3_coder_destroy(v3h, &v3c->encoder);
+    _v3_data_destroy(v3h);
+    _v3_event_clear(v3h);
+
+    _v3_mutex_unlock(v3h);
+
     _v3_mutex_destroy(v3h);
+
     _v3_debug(v3h, V3_DBG_INFO, "destroyed handle: %i", v3h);
 
     _v3_leave(v3h, func);
@@ -280,20 +299,24 @@ v3_default_channel_id(v3_handle v3h, uint16_t id) {
 
 int
 _v3_handle_valid(v3_handle v3h) {
+    int ret = V3_OK;
+
+    pthread_mutex_lock(&_v3_handles_mutex);
+
     if (v3h == V3_HANDLE_NONE) {
         _v3_error(V3_HANDLE_NONE, "invalid handle: %i", v3h);
-        return V3_FAILURE;
-    }
-    if (v3h < V3_HANDLE_NONE || v3h >= V3_MAX_CONN) {
+        ret = V3_FAILURE;
+    } else if (v3h < V3_HANDLE_NONE || v3h >= V3_MAX_CONN) {
         _v3_error(V3_HANDLE_NONE, "handle out of range: %i", v3h);
-        return V3_FAILURE;
-    }
-    if (!_v3_handles[v3h]) {
+        ret = V3_FAILURE;
+    } else if (!_v3_handles[v3h]) {
         _v3_error(V3_HANDLE_NONE, "handle not initialized: %i", v3h);
-        return V3_FAILURE;
+        ret = V3_FAILURE;
     }
 
-    return V3_OK;
+    pthread_mutex_unlock(&_v3_handles_mutex);
+
+    return ret;
 }
 
 void
@@ -506,7 +529,12 @@ _v3_resolv(const char *hostname) {
         return 0;
     }
     _v3_debug(V3_HANDLE_NONE, V3_DBG_INFO, "resolving hostname: '%s'", hostname);
-    if (!inet_aton(hostname, &ip)) {
+#ifdef WIN32
+    if ((ip.s_addr = inet_addr(hostname)) == INADDR_NONE)
+#else
+    if (!inet_aton(hostname, &ip))
+#endif
+    {
         struct hostent *hp;
         int res = 0;
 #ifdef HAVE_GETHOSTBYNAME_R
@@ -550,17 +578,23 @@ _v3_mutex_init(v3_handle v3h) {
 
     _v3_enter(v3h, func);
 
-    if (v3h == V3_HANDLE_NONE) {
-        _v3_leave(v3h, func);
-        return;
-    }
     v3c = _v3_handles[v3h];
+
     if (!v3c->mutex) {
         pthread_mutexattr_init(&mta);
         pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_RECURSIVE);
         _v3_debug(v3h, V3_DBG_MUTEX, "initializing connection mutex");
         v3c->mutex = malloc(sizeof(pthread_mutex_t));
         pthread_mutex_init(v3c->mutex, &mta);
+    }
+    if (!v3c->event_mutex) {
+        pthread_mutexattr_init(&mta);
+        pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_RECURSIVE);
+        _v3_debug(v3h, V3_DBG_MUTEX, "initializing eventq mutex");
+        v3c->event_mutex = malloc(sizeof(pthread_mutex_t));
+        v3c->event_cond = malloc(sizeof(pthread_cond_t));
+        pthread_mutex_init(v3c->event_mutex, &mta);
+        pthread_cond_init(v3c->event_cond, (pthread_condattr_t *)&mta);
     }
 
     _v3_leave(v3h, func);
@@ -574,10 +608,20 @@ _v3_mutex_destroy(v3_handle v3h) {
 
     _v3_enter(v3h, func);
 
-    if (v3h == V3_HANDLE_NONE) {
-        return;
-    }
     v3c = _v3_handles[v3h];
+
+    if (v3c->event_mutex) {
+        _v3_debug(v3h, V3_DBG_MUTEX, "destroying eventq mutex");
+        pthread_cond_broadcast(v3c->event_cond);
+        pthread_mutex_lock(v3c->event_mutex);
+        pthread_mutex_unlock(v3c->event_mutex);
+        pthread_cond_destroy(v3c->event_cond);
+        pthread_mutex_destroy(v3c->event_mutex);
+        free(v3c->event_cond);
+        free(v3c->event_mutex);
+        v3c->event_cond = NULL;
+        v3c->event_mutex = NULL;
+    }
     if (v3c->mutex) {
         _v3_debug(v3h, V3_DBG_MUTEX, "destroying connection mutex");
         pthread_mutex_destroy(v3c->mutex);
@@ -593,27 +637,22 @@ _v3_mutex_lock(v3_handle v3h) {
     const char func[] = "_v3_mutex_lock";
 
     _v3_connection *v3c;
-    int ret;
+    int ret = V3_FAILURE;
 
     _v3_enter(v3h, func);
 
     if (v3h == V3_HANDLE_NONE) {
         ret = pthread_mutex_lock(&_v3_handles_mutex);
         _v3_debug(v3h, V3_DBG_MUTEX, "locked handles mutex: %i: %s", ret, strerror(ret));
-        _v3_leave(v3h, func);
-        return V3_OK;
+        ret = V3_OK;
     } else if ((v3c = _v3_handles[v3h])) {
-        if (!v3c->mutex) {
-            _v3_mutex_init(v3h);
-        }
         ret = pthread_mutex_lock(v3c->mutex);
         _v3_debug(v3h, V3_DBG_MUTEX, "locked connection mutex: %i: %s", ret, strerror(ret));
-        _v3_leave(v3h, func);
-        return V3_OK;
+        ret = V3_OK;
     }
 
     _v3_leave(v3h, func);
-    return V3_FAILURE;
+    return ret;
 }
 
 int
@@ -621,28 +660,22 @@ _v3_mutex_unlock(v3_handle v3h) {
     const char func[] = "_v3_mutex_unlock";
 
     _v3_connection *v3c;
-    int ret;
+    int ret = V3_FAILURE;
 
     _v3_enter(v3h, func);
 
     if (v3h == V3_HANDLE_NONE) {
         ret = pthread_mutex_unlock(&_v3_handles_mutex);
         _v3_debug(v3h, V3_DBG_MUTEX, "unlocked handles mutex: %i: %s", ret, strerror(ret));
-        _v3_leave(v3h, func);
-        return V3_OK;
+        ret = V3_OK;
     } else if ((v3c = _v3_handles[v3h])) {
-        if (!v3c->mutex) {
-            _v3_mutex_init(v3h);
-        } else {
-            ret = pthread_mutex_unlock(v3c->mutex);
-            _v3_debug(v3h, V3_DBG_MUTEX, "unlocked connection mutex: %i: %s", ret, strerror(ret));
-        }
-        _v3_leave(v3h, func);
-        return V3_OK;
+        ret = pthread_mutex_unlock(v3c->mutex);
+        _v3_debug(v3h, V3_DBG_MUTEX, "unlocked connection mutex: %i: %s", ret, strerror(ret));
+        ret = V3_OK;
     }
 
     _v3_leave(v3h, func);
-    return V3_FAILURE;
+    return ret;
 }
 
 char *

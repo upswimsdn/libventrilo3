@@ -148,6 +148,11 @@ enum {
 };
 
 enum {
+    V3_PHANTOM_ADD      = 0x00,
+    V3_PHANTOM_REMOVE   = 0x01
+};
+
+enum {
     V3_METHOD_CURRENT   = 0x02,
     V3_METHOD_CHANNEL   = 0x03,
     V3_METHOD_NEST      = 0x04,
@@ -301,6 +306,17 @@ typedef struct {
     char     version[16];   // 60
     char     unknown_3[32]; // 76
 } PACK _v3_msg_srv_info;
+
+typedef struct {
+    uint16_t subtype;       // 4
+    uint16_t error;         // 6
+    uint16_t unknown_1;     // 8
+    uint16_t user;          // 10
+    uint16_t phantom;       // 12
+    uint16_t channel;       // 14
+    uint16_t unknown_2;     // 16
+    uint16_t unknown_3;     // 18
+} PACK _v3_msg_phantom;
 
 typedef struct {
     uint16_t subtype;       // 4

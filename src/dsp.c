@@ -85,9 +85,9 @@ _v3_audio_amplify(v3_handle v3h, int16_t *pcm, uint32_t pcmlen, float **volume, 
     _v3_enter(v3h, func);
 
     for (pos = 0; pos < count; pos++) {
-        if (volume[pos] && *volume[pos] != 1.0) {
+        if (volume[pos] && *volume[pos] >= 0.0 && *volume[pos] != 1.0) {
             mult = tan((*volume[pos] > 1.95 ? 1.95 : *volume[pos]) * M_PI * 25 / 100.0);
-            _v3_debug(v3h, V3_DBG_INFO, "amplifying pcm to %.0f%% (multipler: %f)", *volume[pos] * 100.0, mult);
+            _v3_debug(v3h, V3_DBG_INFO, "amplifying pcm to %.0f%% (multiplier: %f)", *volume[pos] * 100.0, mult);
             for (ctr = 0; ctr < pcmlen / sizeof(*pcm); ctr++) {
                 tmpsample = pcm[ctr];
                 tmpsample *= mult;

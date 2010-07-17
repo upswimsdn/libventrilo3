@@ -411,7 +411,7 @@ int             v3_default_channel_id(v3_handle v3h, uint16_t id);
 
 int             v3_login(v3_handle v3h);
 int             v3_login_cancel(v3_handle v3h);
-int             v3_logged_in(v3_handle v3h);
+int             v3_logout(v3_handle v3h);
 int             v3_iterate(v3_handle v3h, int block, uint32_t max);
 
 /*
@@ -422,8 +422,9 @@ int             v3_event_get(v3_handle v3h, int block, v3_event *ev);
 void            v3_event_clear(v3_handle v3h);
 
 /*
- * Retreive server information
+ * Server data retrieval functions
  */
+int             v3_logged_in(v3_handle v3h);
 uint16_t        v3_luser_id(v3_handle v3h);
 uint16_t        v3_luser_channel(v3_handle v3h);
 uint16_t        v3_licensed(v3_handle v3h);
@@ -494,8 +495,8 @@ int             v3_audio_start(v3_handle v3h);
 int             v3_audio_stop(v3_handle v3h);
 int             v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, uint32_t pcmlen);
 
-void            v3_phantom_add(v3_handle v3h, uint16_t id);
-void            v3_phantom_remove(v3_handle v3h, uint16_t id);
+int             v3_phantom_add(v3_handle v3h, uint16_t id);
+int             v3_phantom_remove(v3_handle v3h, uint16_t id);
 
 /*
  * Administrative user functions
@@ -509,7 +510,8 @@ int             v3_admin_ban(v3_handle v3h, uint16_t id, const char *reason);
 void            v3_admin_ban_list(v3_handle v3h);
 void            v3_admin_ban_add(v3_handle v3h, uint16_t bitmask, uint32_t ip, const char *user, const char *reason);
 void            v3_admin_ban_remove(v3_handle v3h, uint16_t bitmask, uint32_t ip);
-void            v3_admin_motd(v3_handle v3h, int guest, const char *motd);
+void            v3_admin_motd_user(v3_handle v3h, const char *motd);
+void            v3_admin_motd_guest(v3_handle v3h, const char *motd);
 int             v3_admin_move(v3_handle v3h, uint16_t src, uint16_t dest);
 int             v3_admin_mute_channel(v3_handle v3h, uint16_t id);
 int             v3_admin_mute_global(v3_handle v3h, uint16_t id);

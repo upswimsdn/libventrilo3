@@ -45,23 +45,6 @@ _v3_connected(v3_handle v3h) {
     return connected;
 }
 
-int
-_v3_canceling(v3_handle v3h) {
-    const char func[] = "_v3_canceling";
-
-    _v3_connection *v3c;
-    int cancel;
-
-    _v3_enter(v3h, func);
-
-    v3c = _v3_handles[v3h];
-    cancel = v3c->cancel;
-    _v3_debug(v3h, V3_DBG_SOCKET, "login %scanceled", (!cancel) ? "not " : "");
-
-    _v3_leave(v3h, func);
-    return cancel;
-}
-
 void
 _v3_close(v3_handle v3h) {
     const char func[] = "_v3_close";
@@ -71,8 +54,8 @@ _v3_close(v3_handle v3h) {
     _v3_enter(v3h, func);
 
     v3c = _v3_handles[v3h];
+
     if (_v3_connected(v3h)) {
-        shutdown(v3c->sd, SHUT_WR);
         close(v3c->sd);
         v3c->sd = -1;
     }
@@ -86,6 +69,7 @@ _v3_close(v3_handle v3h) {
         free(v3c->server_key);
         v3c->server_key = NULL;
     }
+    v3c->logged_in = false;
 
     _v3_leave(v3h, func);
 }
@@ -101,13 +85,15 @@ _v3_connect(v3_handle v3h, int tcp) {
     _v3_enter(v3h, func);
 
     _v3_close(v3h);
+
     v3c = _v3_handles[v3h];
+
     if ((v3c->sd = socket(AF_INET, (tcp) ? SOCK_STREAM : SOCK_DGRAM, (tcp) ? IPPROTO_TCP : IPPROTO_UDP)) < 0) {
         _v3_error(v3h, "failed to create %s socket: %s", (tcp) ? "tcp" : "udp", strerror(errno));
         _v3_leave(v3h, func);
         return V3_FAILURE;
     }
-    setsockopt(v3c->sd, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling));
+    setsockopt(v3c->sd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling));
     if (tcp) {
         sa.sin_family = AF_INET;
         sa.sin_addr.s_addr = v3c->ip;
@@ -137,6 +123,7 @@ _v3_timestamp(v3_handle v3h, struct timeval *tv) {
     _v3_enter(v3h, func);
 
     v3c = _v3_handles[v3h];
+
     if (v3c->logged_in) {
         gettimeofday(&now, NULL);
         if (v3c->timestamp.tv_usec < now.tv_usec) {
@@ -177,8 +164,14 @@ _v3_send(v3_handle v3h, _v3_message *m) {
     uint8_t buf[0xffff];
     uint8_t *data;
     uint16_t len;
+    int ret = V3_OK;
 
     _v3_enter(v3h, func);
+
+    if (!_v3_connected(v3h)) {
+        _v3_leave(v3h, func);
+        return V3_FAILURE;
+    }
 
     data = buf;
     len = htons(sizeof(m->type) + m->len);
@@ -205,15 +198,13 @@ _v3_send(v3_handle v3h, _v3_message *m) {
     _v3_debug(v3h, V3_DBG_SOCKET, "sending %u bytes; session: %u bytes, %u packets", len, v3c->sent_byte_ctr, v3c->sent_pkt_ctr);
     if (send(v3c->sd, buf, len, 0) < 0) {
         _v3_error(v3h, "failed to send message: %s", strerror(errno));
-        _v3_mutex_unlock(v3h);
-        _v3_leave(v3h, func);
-        return V3_FAILURE;
+        ret = V3_FAILURE;
     }
 
     _v3_mutex_unlock(v3h);
 
     _v3_leave(v3h, func);
-    return V3_OK;
+    return ret;
 }
 
 void *
@@ -238,12 +229,8 @@ _v3_recv(v3_handle v3h, int block) {
         if (block) {
             _v3_debug(v3h, V3_DBG_SOCKET, "waiting for data...");
         }
-        if ((ret = select(v3c->sd+1, &rfds, NULL, NULL, (block) ? &tv : &zero)) < 0 || !_v3_connected(v3h)) {
-            if (_v3_connected(v3h)) {
-                _v3_error(v3h, "select failed: %s", strerror(errno));
-            } else {
-                _v3_debug(v3h, V3_DBG_STATUS, "disconnected");
-            }
+        if ((ret = select(v3c->sd+1, &rfds, NULL, NULL, (block) ? &tv : &zero)) < 0) {
+            _v3_error(v3h, "select failed: %s", strerror(errno));
             break;
         }
         _v3_timestamp(v3h, NULL);
@@ -254,17 +241,21 @@ _v3_recv(v3_handle v3h, int block) {
             _v3_debug(v3h, V3_DBG_SOCKET, "no data waiting to be received");
             break;
         }
-        _v3_debug(v3h, V3_DBG_PACKET, V3_RENC_TCP);
         m = _v3_msg_alloc(v3h, 0, 0, NULL);
         for (ctr = 0; !m->data || ctr < m->len; ctr += ret, rem = m->len - ctr) {
             if ((ret = recv(v3c->sd, (!m->data) ? &m->len : m->data+ctr, (!m->data) ? sizeof(m->len) : rem, 0)) <= 0) {
-                _v3_error(v3h, (!ret) ? "server closed connection" : strerror(errno));
+                if (v3c->logged_in) {
+                    _v3_error(v3h, (!ret) ? "server closed connection" : strerror(errno));
+                } else {
+                    _v3_debug(v3h, V3_DBG_STATUS, "disconnected");
+                }
                 _v3_msg_free(v3h, m);
                 _v3_close(v3h);
                 _v3_leave(v3h, func);
                 return NULL;
             }
             if (!m->data) {
+                _v3_debug(v3h, V3_DBG_PACKET, V3_RENC_TCP);
                 m->len = ntohs(m->len);
                 _v3_debug(v3h, V3_DBG_SOCKET, "receiving %i bytes", m->len);
                 m->data = malloc(m->len);
@@ -316,6 +307,7 @@ v3_login(v3_handle v3h) {
         _v3_leave(v3h, func);
         return V3_FAILURE;
     }
+    _v3_data_destroy(v3h);
     v3c = _v3_handles[v3h];
     v3c->connecting = true;
     if (_v3_handshake(v3h) == V3_OK &&
@@ -357,15 +349,39 @@ v3_login_cancel(v3_handle v3h) {
     _v3_enter(v3h, func);
 
     v3c = _v3_handles[v3h];
-    if (v3c->connecting && !_v3_canceling(v3h)) {
+
+    if (v3c->connecting) {
         _v3_debug(v3h, V3_DBG_INFO, "canceling login");
-        v3c->cancel = true;
-        _v3_close(v3h);
-    } else if (!v3c->connecting && _v3_connected(v3h)) {
-        _v3_error(v3h, "already connected; try logout");
-        _v3_leave(v3h, func);
+        shutdown(v3c->sd, SHUT_WR);
+    }
+
+    _v3_leave(v3h, func);
+    return V3_OK;
+}
+
+int
+v3_logout(v3_handle v3h) {
+    const char func[] = "v3_logout";
+
+    _v3_connection *v3c;
+    v3_event ev = { .type = V3_EVENT_LOGOUT };
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
+    _v3_enter(v3h, func);
+
+    _v3_mutex_lock(v3h);
+
+    v3c = _v3_handles[v3h];
+
+    if (_v3_connected(v3h)) {
+        v3c->logged_in = false;
+        shutdown(v3c->sd, SHUT_WR);
+        _v3_event_push(v3h, &ev);
+    }
+
+    _v3_mutex_unlock(v3h);
 
     _v3_leave(v3h, func);
     return V3_OK;

@@ -61,7 +61,6 @@ struct _v3_connection {
     pthread_mutex_t *   mutex;
 
     uint8_t             connecting;
-    uint8_t             cancel;
 
     int                 sd;
 
@@ -313,6 +312,7 @@ char *      _v3_strncpy(char *dest, const char *src, size_t n);
 int         _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n);
 
 /* dsp.c */
+void        _v3_coder_destroy(v3_handle v3h, v3_coder *coder);
 void        _v3_audio_amplify(v3_handle v3h, int16_t *pcm, uint32_t pcmlen, float **volume, size_t count);
 int         _v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, uint32_t pcmlen);
 int         _v3_audio_encode(
@@ -366,6 +366,7 @@ int         _v3_msg_chat_put(v3_handle v3h, uint16_t subtype, const char *messag
 int         _v3_msg_user_option_put(v3_handle v3h, uint16_t user_id, uint16_t subtype, uint32_t value);
 int         _v3_msg_chan_list_put(v3_handle v3h, uint16_t subtype, uint16_t user, const char *password, const v3_channel *c);
 int         _v3_msg_audio_put(v3_handle v3h, uint16_t subtype, int16_t index, int16_t format, uint32_t pcmlen, const void *data, uint32_t datalen);
+int         _v3_msg_phantom_put(v3_handle v3h, uint16_t subtype, uint16_t phantom, uint16_t channel);
 int         _v3_msg_user_list_put(v3_handle v3h, uint16_t subtype, const v3_user *u);
 int         _v3_msg_user_page_put(v3_handle v3h, uint16_t to, uint16_t from);
 int         _v3_msg_admin_put(v3_handle v3h, uint16_t subtype, uint16_t user, const void *data);

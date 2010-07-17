@@ -322,9 +322,16 @@ v3_audio_stop(v3_handle v3h) {
     _v3_enter(v3h, func);
 
     v3c = _v3_handles[v3h];
-    v3c->pcmqueued = 0;
     codec = v3_codec_channel_get(v3h, v3c->luser.channel);
     ret = _v3_msg_audio_put(v3h, V3_AUDIO_STOP, codec->index, codec->format, 0, NULL, 0);
+
+    v3c->pcmqueued = 0;
+#if HAVE_SPEEXDSP
+    if (v3c->resampler.state) {
+        speex_resampler_destroy(v3c->resampler.state);
+    }
+#endif
+    _v3_coder_destroy(v3h, &v3c->encoder);
 
     _v3_leave(v3h, func);
     return ret;
@@ -342,6 +349,40 @@ v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, u
     _v3_enter(v3h, func);
 
     ret = _v3_audio_send(v3h, rate, channels, pcm, pcmlen);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_phantom_add(v3_handle v3h, uint16_t id) {
+    const char func[] = "v3_phantom_add";
+
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    ret = _v3_msg_phantom_put(v3h, V3_PHANTOM_ADD, 0, id);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
+v3_phantom_remove(v3_handle v3h, uint16_t id) {
+    const char func[] = "v3_phantom_remove";
+
+    int ret;
+
+    if (_v3_handle_valid(v3h) != V3_OK) {
+        return V3_FAILURE;
+    }
+    _v3_enter(v3h, func);
+
+    ret = _v3_msg_phantom_put(v3h, V3_PHANTOM_REMOVE, id, 0);
 
     _v3_leave(v3h, func);
     return ret;

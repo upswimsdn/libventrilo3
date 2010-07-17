@@ -126,6 +126,34 @@ flac_data_t fld;
 
 #endif
 
+#ifdef WIN32
+# include <winsock.h>
+# define FAIL32 WSADATA w; WSAStartup(MAKEWORD(1, 0), &w);
+# undef strcasestr
+# include <ctype.h>
+char *
+strcasestr(char *haystack, char *needle) {
+    char *p, *startn = 0, *np = 0;
+
+    for (p = haystack; *p; p++) {
+        if (np) {
+            if (toupper(*p) == toupper(*np)) {
+                if (!*++np)
+                    return startn;
+            } else
+                np = 0;
+        } else if (toupper(*p) == toupper(*needle)) {
+            np = needle + 1;
+            startn = p;
+        }
+    }
+
+    return 0;
+}
+#else
+# define FAIL32
+#endif
+
 #define false   0
 #define true    1
 
@@ -189,7 +217,7 @@ void shuffle_musiclist(void);
 
 void ctrl_c(int signum) {
     fprintf(stderr, "disconnecting... ");
-    /**v3_logout();*/
+    v3_logout(v3h);
     fprintf(stderr, "done\n");
 }
 
@@ -214,7 +242,7 @@ void *jukebox_player(void *connptr) {
     char playonly[64];
     int politeness = 0; // only slightly polite :)
 
-    const v3_codec *codec;
+    const v3_codec *codec = NULL;
     v3_event ev;
     v3_channel *c = &ev.channel;
     v3_user *u = &ev.user;
@@ -482,6 +510,7 @@ void *jukebox_player(void *connptr) {
 
     pthread_detach(pthread_self());
     pthread_exit(NULL);
+    return NULL;
 }
 
 void send_now_playing(int filenum) {
@@ -1105,6 +1134,7 @@ main(int argc, char **argv) {
     if (!disable_stereo) {
         fprintf(stderr, "will use 2 channels for the CELT codec\n");
     }
+    FAIL32;
     if (debug >= 2) {
         v3_debug(V3_HANDLE_NONE, V3_DBG_ALL);
     }
@@ -1116,16 +1146,17 @@ main(int argc, char **argv) {
         v3_debug(v3h, V3_DBG_ALL);
     }
     v3_password(v3h, conninfo.password);
+    signal(SIGINT, ctrl_c);
     if (v3_login(v3h) != V3_OK) {
         fprintf(stderr, "v3_login() error: %s\n", v3_error(v3h));
         return EXIT_FAILURE;
     }
-    /**signal(SIGINT, ctrl_c);*/
     v3_volume_user_set(v3h, v3_luser_id(v3h), volume);
     pthread_create(&player, NULL, jukebox_player, &conninfo);
     if (v3_iterate(v3h, V3_BLOCK, 0) != V3_OK) {
         fprintf(stderr, "v3_iterate() error: %s\n", v3_error(v3h));
     }
+    v3_destroy(v3h);
 
     return EXIT_SUCCESS;
 }

@@ -132,6 +132,9 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
         while (ptr) {
             if (*(uint16_t *)ptr == *(uint16_t *)data) {
                 memcpy((!last) ? list : last+(size-sizeof(void *)), ptr+(size-sizeof(void *)), sizeof(void *));
+                if (type == V3_DATA_TYPE_USER) {
+                    _v3_coder_destroy(v3h, &((v3_user *)ptr)->decoder);
+                }
                 free(ptr);
                 _v3_debug(v3h, V3_DBG_MEMORY, "released %s id %u", tstr, *(uint16_t *)data);
                 break;
@@ -152,6 +155,9 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
         }
         while (*list) {
             memcpy(&ptr, *list+(size-sizeof(void *)), sizeof(void *));
+            if (type == V3_DATA_TYPE_USER) {
+                _v3_coder_destroy(v3h, &((v3_user *)*list)->decoder);
+            }
             free(*list);
             _v3_debug(v3h, V3_DBG_MEMORY, "released %s item %i", tstr, ++ctr);
             *list = ptr;
@@ -176,9 +182,6 @@ _v3_data_count(v3_handle v3h, int type) {
     size_t size;
     int ctr;
 
-    if (!v3c->mutex) {
-        return 0;
-    }
     pthread_mutex_lock(v3c->mutex);
 
     switch (type) {
@@ -212,96 +215,17 @@ _v3_data_count(v3_handle v3h, int type) {
 }
 
 void
-_v3_event_mutex_init(v3_handle v3h) {
-    const char func[] = "_v3_event_mutex_init";
-
-    _v3_connection *v3c;
-    pthread_mutexattr_t mta;
+_v3_data_destroy(v3_handle v3h) {
+    const char func[] = "_v3_data_destroy";
 
     _v3_enter(v3h, func);
 
-    v3c = _v3_handles[v3h];
-    if (!v3c->event_mutex) {
-        pthread_mutexattr_init(&mta);
-        pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_RECURSIVE);
-        _v3_debug(v3h, V3_DBG_MUTEX, "initializing eventq mutex");
-        v3c->event_mutex = malloc(sizeof(pthread_mutex_t));
-        v3c->event_cond = malloc(sizeof(pthread_cond_t));
-        pthread_mutex_init(v3c->event_mutex, &mta);
-        pthread_cond_init(v3c->event_cond, (pthread_condattr_t *)&mta);
-    }
+    _v3_data(v3h, V3_DATA_CLEAR, V3_DATA_TYPE_CHANNEL, NULL, 0);
+    _v3_data(v3h, V3_DATA_CLEAR, V3_DATA_TYPE_RANK, NULL, 0);
+    _v3_data(v3h, V3_DATA_CLEAR, V3_DATA_TYPE_USER, NULL, 0);
+    _v3_data(v3h, V3_DATA_CLEAR, V3_DATA_TYPE_ACCOUNT, NULL, 0);
 
     _v3_leave(v3h, func);
-}
-
-void
-_v3_event_mutex_destroy(v3_handle v3h) {
-    const char func[] = "_v3_event_mutex_destroy";
-
-    _v3_connection *v3c;
-
-    _v3_enter(v3h, func);
-
-    v3c = _v3_handles[v3h];
-    if (v3c->event_mutex) {
-        _v3_debug(v3h, V3_DBG_MUTEX, "destroying eventq mutex");
-        pthread_cond_broadcast(v3c->event_cond);
-        pthread_cond_destroy(v3c->event_cond);
-        pthread_mutex_destroy(v3c->event_mutex);
-        free(v3c->event_cond);
-        free(v3c->event_mutex);
-        v3c->event_cond = NULL;
-        v3c->event_mutex = NULL;
-    }
-
-    _v3_leave(v3h, func);
-}
-
-void
-_v3_event_mutex_lock(v3_handle v3h) {
-    const char func[] = "_v3_event_mutex_lock";
-
-    _v3_connection *v3c = _v3_handles[v3h];
-
-    if (!v3c->event_mutex) {
-        _v3_enter(v3h, func);
-        _v3_event_mutex_init(v3h);
-        _v3_leave(v3h, func);
-    }
-    pthread_mutex_lock(v3c->event_mutex);
-}
-
-void
-_v3_event_mutex_unlock(v3_handle v3h) {
-    const char func[] = "_v3_event_mutex_unlock";
-
-    _v3_connection *v3c = _v3_handles[v3h];
-
-    if (!v3c->event_mutex) {
-        _v3_enter(v3h, func);
-        _v3_event_mutex_init(v3h);
-        _v3_leave(v3h, func);
-    } else {
-        pthread_mutex_unlock(v3c->event_mutex);
-    }
-}
-
-void
-_v3_event_cond_signal(v3_handle v3h) {
-    _v3_connection *v3c = _v3_handles[v3h];
-
-    if (v3c->event_cond) {
-        pthread_cond_signal(v3c->event_cond);
-    }
-}
-
-void
-_v3_event_cond_wait(v3_handle v3h) {
-    _v3_connection *v3c = _v3_handles[v3h];
-
-    if (v3c->event_cond) {
-        pthread_cond_wait(v3c->event_cond, v3c->event_mutex);
-    }
 }
 
 void
@@ -314,12 +238,13 @@ _v3_event_push(v3_handle v3h, v3_event *ev) {
 
     _v3_enter(v3h, func);
 
-    _v3_event_mutex_lock(v3h);
+    v3c = _v3_handles[v3h];
+
+    pthread_mutex_lock(v3c->event_mutex);
 
     last = calloc(1, sizeof(v3_event));
     memcpy(last, ev, sizeof(v3_event) - sizeof(last->next));
     ev = last;
-    v3c = _v3_handles[v3h];
 
     for (last = v3c->eventq, ctr = 0; last && ++ctr && last->next; last = last->next);
 
@@ -329,9 +254,10 @@ _v3_event_push(v3_handle v3h, v3_event *ev) {
         last->next = ev;
     }
     _v3_debug(v3h, V3_DBG_EVENT, "%i events in queue", ++ctr);
-    _v3_event_cond_signal(v3h);
 
-    _v3_event_mutex_unlock(v3h);
+    pthread_cond_signal(v3c->event_cond);
+
+    pthread_mutex_unlock(v3c->event_mutex);
 
     _v3_leave(v3h, func);
 }
@@ -343,34 +269,71 @@ _v3_event_pop(v3_handle v3h, int block, v3_event *ev) {
     if (!block && !v3c->eventq) {
         return V3_FAILURE;
     }
-    _v3_event_mutex_lock(v3h);
+
+    pthread_mutex_lock(v3c->event_mutex);
 
     if (!v3c->eventq) {
-        _v3_event_cond_wait(v3h);
+        pthread_cond_wait(v3c->event_cond, v3c->event_mutex);
+        if (!v3c->eventq) {
+            pthread_mutex_unlock(v3c->event_mutex);
+            return V3_FAILURE;
+        }
     }
     memcpy(ev, v3c->eventq, sizeof(v3_event) - sizeof(ev->next));
     ev = v3c->eventq;
     v3c->eventq = ev->next;
     free(ev);
 
-    _v3_event_mutex_unlock(v3h);
+    pthread_mutex_unlock(v3c->event_mutex);
 
     return V3_OK;
 }
 
+void
+_v3_event_clear(v3_handle v3h) {
+    const char func[] = "_v3_event_clear";
+
+    _v3_connection *v3c;
+    v3_event *ev, *next;
+    int ctr = 0;
+
+    _v3_enter(v3h, func);
+
+    v3c = _v3_handles[v3h];
+
+    pthread_mutex_lock(v3c->event_mutex);
+
+    ev = v3c->eventq;
+
+    while (ev && ++ctr) {
+        next = ev->next;
+        free(ev);
+        ev = next;
+    }
+    _v3_debug(v3h, V3_DBG_EVENT, "released %i events", ctr);
+
+    pthread_mutex_unlock(v3c->event_mutex);
+
+    _v3_leave(v3h, func);
+}
+
 int
 v3_event_count(v3_handle v3h) {
+    _v3_connection *v3c;
     v3_event *ev;
     int ctr;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return 0;
     }
-    _v3_event_mutex_lock(v3h);
 
-    for (ctr = 0, ev = _v3_handles[v3h]->eventq; ev; ctr++, ev = ev->next);
+    v3c = _v3_handles[v3h];
 
-    _v3_event_mutex_unlock(v3h);
+    pthread_mutex_lock(v3c->event_mutex);
+
+    for (ctr = 0, ev = v3c->eventq; ev; ctr++, ev = ev->next);
+
+    pthread_mutex_unlock(v3c->event_mutex);
 
     return ctr;
 }
@@ -386,24 +349,16 @@ v3_event_get(v3_handle v3h, int block, v3_event *ev) {
 
 void
 v3_event_clear(v3_handle v3h) {
-    v3_event *ev, *next;
-    int ctr = 0;
+    const char func[] = "v3_event_clear";
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return;
     }
-    _v3_event_mutex_lock(v3h);
+    _v3_enter(v3h, func);
 
-    ev = _v3_handles[v3h]->eventq;
+    _v3_event_clear(v3h);
 
-    while (ev && ++ctr) {
-        next = ev->next;
-        free(ev);
-        ev = next;
-    }
-    _v3_debug(v3h, V3_DBG_EVENT, "released %i events", ctr);
-
-    _v3_event_mutex_unlock(v3h);
+    _v3_leave(v3h, func);
 }
 
 int

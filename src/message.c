@@ -498,6 +498,36 @@ _v3_msg_audio_put(v3_handle v3h, uint16_t subtype, int16_t index, int16_t format
 }
 
 int
+_v3_msg_phantom_put(v3_handle v3h, uint16_t subtype, uint16_t phantom, uint16_t channel) {
+    const char func[] = "_v3_msg_phantom_put";
+
+    _v3_message *m;
+    _v3_msg_phantom *mc;
+    int ret;
+
+    _v3_enter(v3h, func);
+
+    m = _v3_msg_alloc(v3h, V3_MSG_PHANTOM, sizeof(_v3_msg_phantom), (void **)&mc);
+
+    switch ((mc->subtype = subtype)) {
+      case V3_PHANTOM_ADD:
+        mc->channel = channel;
+        break;
+      case V3_PHANTOM_REMOVE:
+        mc->phantom = phantom;
+        break;
+    }
+    mc->user = v3_luser_id(v3h);
+
+    ret = _v3_send(v3h, m);
+
+    _v3_msg_free(v3h, m);
+
+    _v3_leave(v3h, func);
+    return ret;
+}
+
+int
 _v3_msg_hash_table_put(v3_handle v3h, uint16_t subtype) {
     const char func[] = "_v3_msg_hash_table_put";
 
@@ -882,7 +912,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     break;
                   case V3_CHAT_PERM:
                     if (!ev.type) {
-                    
+                        //TODO
                     }
                     break;
                   default:
@@ -1040,23 +1070,6 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
             }
 
             _v3_mutex_unlock(v3h);
-        }
-        break;
-      case V3_MSG_SRV_INFO:
-        {
-            _v3_msg_srv_info *mc = m->data;
-
-            _v3_debug(v3h, V3_DBG_MESSAGE, "server info: licensed: %u | port: %u | slots: %u | clients: %u | name: '%s' | version: '%s'",
-                    mc->licensed,
-                    mc->port,
-                    mc->slots,
-                    mc->clients,
-                    mc->name,
-                    mc->version);
-            v3c->licensed = mc->licensed;
-            v3c->slots = mc->slots;
-            strncpy(v3c->name, mc->name, sizeof(v3c->name) - 1);
-            strncpy(v3c->version, mc->version, sizeof(v3c->version) - 1);
         }
         break;
       case V3_MSG_SRV_PROP:
@@ -1231,6 +1244,81 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
             _v3_mutex_unlock(v3h);
         }
         break;
+      case V3_MSG_SRV_INFO:
+        {
+            _v3_msg_srv_info *mc = m->data;
+
+            _v3_debug(v3h, V3_DBG_MESSAGE, "server info: licensed: %u | port: %u | slots: %u | clients: %u | name: '%s' | version: '%s'",
+                    mc->licensed,
+                    mc->port,
+                    mc->slots,
+                    mc->clients,
+                    mc->name,
+                    mc->version);
+            v3c->licensed = mc->licensed;
+            v3c->slots = mc->slots;
+            strncpy(v3c->name, mc->name, sizeof(v3c->name) - 1);
+            strncpy(v3c->version, mc->version, sizeof(v3c->version) - 1);
+        }
+        break;
+      case V3_MSG_PHANTOM:
+        {
+            _v3_msg_phantom *mc = m->data;
+            v3_user u = { .id = 0 };
+            char name[sizeof(u.name)];
+            v3_event ev = { .type = 0 };
+
+            _v3_mutex_lock(v3h);
+
+            _v3_debug(v3h, V3_DBG_MESSAGE, "phantom: user: %u | phantom: %u | channel: %u", mc->user, mc->phantom, mc->channel);
+            switch (mc->subtype) {
+              case V3_PHANTOM_ADD:
+                u.id = mc->user;
+                break;
+              case V3_PHANTOM_REMOVE:
+                u.id = mc->phantom;
+                break;
+              default:
+                _v3_debug(v3h, V3_DBG_MESSAGE, "message type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
+                ret = V3_NOTIMPL;
+                break;
+            }
+            if (_v3_data(v3h, V3_DATA_COPY, V3_DATA_TYPE_USER, &u, 0) == V3_OK) {
+                switch (mc->subtype) {
+                  case V3_PHANTOM_ADD:
+                    if (!ev.type) {
+                        ev.type = (!v3c->logged_in) ? V3_EVENT_USER_LIST : V3_EVENT_USER_LOGIN;
+                    }
+                    strncpy(name, u.name, sizeof(name) - 1);
+                    memset(&u, 0, sizeof(v3_user));
+                    strncpy(u.name, name, sizeof(u.name) - 1);
+                    u.id = mc->phantom;
+                    u.channel = mc->channel;
+                    u.phantom_owner = mc->user;
+                  case V3_PHANTOM_REMOVE:
+                    if (!ev.type) {
+                        ev.type = V3_EVENT_USER_LOGOUT;
+                    }
+                    _v3_data(
+                            v3h,
+                            (mc->subtype == V3_PHANTOM_REMOVE)
+                                ? V3_DATA_REMOVE
+                                : V3_DATA_UPDATE,
+                            V3_DATA_TYPE_USER,
+                            &u,
+                            (void *)&u._strings_ - (void *)&u);
+                    ev.user = u;
+                    ev.user.next = NULL;
+                    break;
+                }
+                if (ev.type) {
+                    _v3_event_push(v3h, &ev);
+                }
+            }
+
+            _v3_mutex_unlock(v3h);
+        }
+        break;
       case V3_MSG_HASH_TABLE:
         {
             _v3_msg_hash_table *mc = m->data;
@@ -1310,6 +1398,29 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                 }
                 if (ev.type) {
                     _v3_event_push(v3h, &ev);
+                }
+                if (mc->subtype == V3_USER_REMOVE) {
+                    v3_user *user = v3c->users, *last = NULL;
+
+                    while (user) {
+                        if (user->phantom_owner && user->phantom_owner == u.id) {
+                            ev.type = V3_EVENT_USER_LOGOUT;
+                            memcpy(&ev.user, user, sizeof(v3_user));
+                            ev.user.next = NULL;
+                            _v3_event_push(v3h, &ev);
+                            u.next = user;
+                            user = user->next;
+                            free(u.next);
+                            if (!last) {
+                                v3c->users = user;
+                            } else {
+                                last->next = user;
+                            }
+                        } else {
+                            last = user;
+                            user = user->next;
+                        }
+                    }
                 }
             }
 
