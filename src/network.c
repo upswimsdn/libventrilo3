@@ -75,6 +75,7 @@ _v3_connect(v3_handle v3h, int tcp) {
     _v3_connection *v3c;
     struct linger ling = { 1, 1 };
     struct sockaddr_in sa;
+    int tmp = 1;
 
     _v3_enter(v3h, __func__);
 
@@ -89,6 +90,7 @@ _v3_connect(v3_handle v3h, int tcp) {
     }
     setsockopt(v3c->sd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling));
     if (tcp) {
+        setsockopt(v3c->sd, SOL_SOCKET, SO_KEEPALIVE, (void *)&tmp, sizeof(tmp));
         sa.sin_family = AF_INET;
         sa.sin_addr.s_addr = v3c->ip;
         sa.sin_port = htons(v3c->port);
