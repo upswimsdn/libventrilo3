@@ -6,7 +6,7 @@
  * $LastChangedBy$
  * $URL$
  *
- * Copyright 2009-2010 Eric Kilfoil
+ * Copyright 2009-2011 Eric Connell
  *
  * This file is part of libventrilo3.
  *
@@ -35,7 +35,7 @@ v3_logged_in(v3_handle v3h) {
 
 uint16_t
 v3_luser_id(v3_handle v3h) {
-    if (_v3_handle_valid(v3h) == V3_OK && v3_logged_in(v3h)) {
+    if (v3_logged_in(v3h)) {
         return _v3_handles[v3h]->luser.id;
     }
 
@@ -44,7 +44,7 @@ v3_luser_id(v3_handle v3h) {
 
 uint16_t
 v3_luser_channel(v3_handle v3h) {
-    if (_v3_handle_valid(v3h) == V3_OK && v3_logged_in(v3h)) {
+    if (v3_logged_in(v3h)) {
         return _v3_handles[v3h]->luser.channel;
     }
 
@@ -53,7 +53,7 @@ v3_luser_channel(v3_handle v3h) {
 
 uint16_t
 v3_licensed(v3_handle v3h) {
-    if (_v3_handle_valid(v3h) == V3_OK && v3_logged_in(v3h)) {
+    if (v3_logged_in(v3h)) {
         return _v3_handles[v3h]->licensed;
     }
 
@@ -62,7 +62,7 @@ v3_licensed(v3_handle v3h) {
 
 uint16_t
 v3_slot_count(v3_handle v3h) {
-    if (_v3_handle_valid(v3h) == V3_OK && v3_logged_in(v3h)) {
+    if (v3_logged_in(v3h)) {
         return _v3_handles[v3h]->slots;
     }
 
@@ -71,7 +71,7 @@ v3_slot_count(v3_handle v3h) {
 
 uint64_t
 v3_sent_bytes(v3_handle v3h) {
-    if (_v3_handle_valid(v3h) == V3_OK && v3_logged_in(v3h)) {
+    if (v3_logged_in(v3h)) {
         return _v3_handles[v3h]->sent_byte_ctr;
     }
 
@@ -80,7 +80,7 @@ v3_sent_bytes(v3_handle v3h) {
 
 uint64_t
 v3_recv_bytes(v3_handle v3h) {
-    if (_v3_handle_valid(v3h) == V3_OK && v3_logged_in(v3h)) {
+    if (v3_logged_in(v3h)) {
         return _v3_handles[v3h]->recv_byte_ctr;
     }
 
@@ -89,7 +89,7 @@ v3_recv_bytes(v3_handle v3h) {
 
 uint32_t
 v3_sent_packets(v3_handle v3h) {
-    if (_v3_handle_valid(v3h) == V3_OK && v3_logged_in(v3h)) {
+    if (v3_logged_in(v3h)) {
         return _v3_handles[v3h]->sent_pkt_ctr;
     }
 
@@ -98,7 +98,7 @@ v3_sent_packets(v3_handle v3h) {
 
 uint32_t
 v3_recv_packets(v3_handle v3h) {
-    if (_v3_handle_valid(v3h) == V3_OK && v3_logged_in(v3h)) {
+    if (v3_logged_in(v3h)) {
         return _v3_handles[v3h]->recv_pkt_ctr;
     }
 
@@ -107,15 +107,13 @@ v3_recv_packets(v3_handle v3h) {
 
 int
 v3_luser_option(v3_handle v3h, int type, uint8_t value) {
-    const char func[] = "v3_luser_option";
-
     _v3_connection *v3c;
     int ret = V3_OK;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
     if (v3c->logged_in) {
@@ -137,14 +135,12 @@ v3_luser_option(v3_handle v3h, int type, uint8_t value) {
         }
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_luser_text(v3_handle v3h, const char *comment, const char *url, const char *integration, uint8_t silent) {
-    const char func[] = "v3_luser_text";
-
     _v3_connection *v3c;
     v3_user u;
     int ret = V3_OK;
@@ -152,7 +148,7 @@ v3_luser_text(v3_handle v3h, const char *comment, const char *url, const char *i
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
     if (v3c->logged_in) {
@@ -169,39 +165,35 @@ v3_luser_text(v3_handle v3h, const char *comment, const char *url, const char *i
         _v3_strncpy(v3c->luser.integration, integration, sizeof(v3c->luser.integration) - 1);
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_channel_change(v3_handle v3h, uint16_t id, const char *password) {
-    const char func[] = "v3_channel_change";
-
     v3_channel c = { .id = id };
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_msg_chan_list_put(v3h, V3_CHAN_CHANGE, v3_luser_id(v3h), password, &c);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_user_mute(v3_handle v3h, uint16_t id, uint8_t mute) {
-    const char func[] = "v3_user_mute";
-
     v3_user u = { .id = id };
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_mutex_lock(v3h);
 
@@ -211,20 +203,18 @@ v3_user_mute(v3_handle v3h, uint16_t id, uint8_t mute) {
 
     _v3_mutex_unlock(v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_user_page(v3_handle v3h, uint16_t id) {
-    const char func[] = "v3_user_page";
-
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_mutex_lock(v3h);
 
@@ -232,65 +222,57 @@ v3_user_page(v3_handle v3h, uint16_t id) {
 
     _v3_mutex_unlock(v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_chat_join(v3_handle v3h) {
-    const char func[] = "v3_chat_join";
-
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_msg_chat_put(v3h, V3_CHAT_JOIN, NULL);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_chat_leave(v3_handle v3h) {
-    const char func[] = "v3_chat_leave";
-
-    int ret = V3_OK;
+    int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_msg_chat_put(v3h, V3_CHAT_LEAVE, NULL);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_chat_message(v3_handle v3h, const char *message) {
-    const char func[] = "v3_chat_message";
-
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_msg_chat_put(v3h, V3_CHAT_MESSAGE, message);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_audio_start(v3_handle v3h) {
-    const char func[] = "v3_audio_start";
-
     _v3_connection *v3c;
     const v3_codec *codec;
     int ret;
@@ -298,20 +280,18 @@ v3_audio_start(v3_handle v3h) {
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
     codec = v3_codec_channel_get(v3h, v3c->luser.channel);
     ret = _v3_msg_audio_put(v3h, V3_AUDIO_START, codec->index, codec->format, 0, NULL, 0);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_audio_stop(v3_handle v3h) {
-    const char func[] = "v3_audio_stop";
-
     _v3_connection *v3c;
     const v3_codec *codec;
     int ret;
@@ -319,7 +299,7 @@ v3_audio_stop(v3_handle v3h) {
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
     codec = v3_codec_channel_get(v3h, v3c->luser.channel);
@@ -329,103 +309,92 @@ v3_audio_stop(v3_handle v3h) {
 #if HAVE_SPEEXDSP
     if (v3c->resampler.state) {
         speex_resampler_destroy(v3c->resampler.state);
+        v3c->resampler.state = NULL;
     }
 #endif
     _v3_coder_destroy(v3h, &v3c->encoder);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, uint32_t pcmlen) {
-    const char func[] = "v3_audio_send";
-
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_audio_send(v3h, rate, channels, pcm, pcmlen);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_phantom_add(v3_handle v3h, uint16_t id) {
-    const char func[] = "v3_phantom_add";
-
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_msg_phantom_put(v3h, V3_PHANTOM_ADD, 0, id);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_phantom_remove(v3_handle v3h, uint16_t id) {
-    const char func[] = "v3_phantom_remove";
-
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_msg_phantom_put(v3h, V3_PHANTOM_REMOVE, id, 0);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_admin_login(v3_handle v3h, const char *password) {
-    const char func[] = "v3_admin_login";
-
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_msg_admin_put(v3h, V3_ADMIN_LOGIN, 0, password);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_admin_logout(v3_handle v3h) {
-    const char func[] = "v3_admin_logout";
-
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_msg_admin_put(v3h, V3_ADMIN_LOGOUT, 0, NULL);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_admin_channel_kick(v3_handle v3h, uint16_t id) {
-    const char func[] = "v3_admin_channel_kick";
-
     v3_user u = { .id = id };
     v3_channel c = { .id = 0 };
     int ret;
@@ -433,134 +402,110 @@ v3_admin_channel_kick(v3_handle v3h, uint16_t id) {
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     if ((ret = _v3_data(v3h, V3_DATA_COPY, V3_DATA_TYPE_USER, &u, 0)) == V3_OK) {
         c.id = u.channel;
         ret = _v3_msg_chan_list_put(v3h, V3_CHAN_KICK, id, NULL, &c);
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_admin_channel_ban(v3_handle v3h, uint16_t id, const char *reason) {
-    const char func[] = "v3_admin_channel_ban";
-
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_msg_admin_put(v3h, V3_ADMIN_CHAN_BAN, id, reason);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_admin_kick(v3_handle v3h, uint16_t id, const char *reason) {
-    const char func[] = "v3_admin_kick";
-
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_msg_admin_put(v3h, V3_ADMIN_KICK, id, reason);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_admin_ban(v3_handle v3h, uint16_t id, const char *reason) {
-    const char func[] = "v3_admin_ban";
-
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_msg_admin_put(v3h, V3_ADMIN_BAN, id, reason);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_admin_move(v3_handle v3h, uint16_t src, uint16_t dest) {
-    const char func[] = "v3_admin_move";
-
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_msg_move_put(v3h, src, dest);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_admin_mute_channel(v3_handle v3h, uint16_t id) {
-    const char func[] = "v3_admin_mute_channel";
-
     v3_user u = { .id = id };
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     if ((ret = _v3_data(v3h, V3_DATA_COPY, V3_DATA_TYPE_USER, &u, 0)) == V3_OK) {
         ret = _v3_msg_user_option_put(v3h, id, V3_USER_CHANNEL_MUTE, !u.muted_channel);
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_admin_mute_global(v3_handle v3h, uint16_t id) {
-    const char func[] = "v3_admin_mute_global";
-
     v3_user u = { .id = id };
     int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     if ((ret = _v3_data(v3h, V3_DATA_COPY, V3_DATA_TYPE_USER, &u, 0)) == V3_OK) {
         ret = _v3_msg_user_option_put(v3h, id, V3_USER_GLOBAL_MUTE, !u.muted_global);
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
-
-
-
-
-
-
-
-
-
-
-
-
 

@@ -6,7 +6,7 @@
  * $LastChangedBy$
  * $URL$
  *
- * Copyright 2009-2010 Eric Kilfoil
+ * Copyright 2009-2011 Eric Connell
  *
  * This file is part of libventrilo3.
  *
@@ -26,9 +26,7 @@
 
 void
 _v3_coder_destroy(v3_handle v3h, v3_coder *coder) {
-    const char func[] = "_v3_coder_destroy";
-
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     if (coder->state) {
         _v3_debug(v3h, V3_DBG_MEMORY, "releasing %scoder state", (coder->encoder) ? "en" : "de");
@@ -68,13 +66,11 @@ _v3_coder_destroy(v3_handle v3h, v3_coder *coder) {
         coder->state = NULL;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 void
 _v3_audio_amplify(v3_handle v3h, int16_t *pcm, uint32_t pcmlen, float **volume, size_t count) {
-    const char func[] = "_v3_audio_amplify";
-
     static const int16_t samplemax = 0x7fff;
     static const int16_t samplemin = 0x7fff + 1;
     register float tmpsample;
@@ -82,13 +78,13 @@ _v3_audio_amplify(v3_handle v3h, int16_t *pcm, uint32_t pcmlen, float **volume, 
     float mult;
     uint32_t ctr;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
-    for (pos = 0; pos < count; pos++) {
+    for (pos = 0; pos < count; ++pos) {
         if (volume[pos] && *volume[pos] >= 0.0 && *volume[pos] != 1.0) {
             mult = tan((*volume[pos] > 1.95 ? 1.95 : *volume[pos]) * M_PI * 25 / 100.0);
             _v3_debug(v3h, V3_DBG_INFO, "amplifying pcm to %.0f%% (multiplier: %f)", *volume[pos] * 100.0, mult);
-            for (ctr = 0; ctr < pcmlen / sizeof(*pcm); ctr++) {
+            for (ctr = 0; ctr < pcmlen / sizeof(*pcm); ++ctr) {
                 tmpsample = pcm[ctr];
                 tmpsample *= mult;
                 pcm[ctr] = (tmpsample > samplemax) ? samplemax : (tmpsample < samplemin ? samplemin : tmpsample);
@@ -96,13 +92,11 @@ _v3_audio_amplify(v3_handle v3h, int16_t *pcm, uint32_t pcmlen, float **volume, 
         }
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 int
 _v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, uint32_t pcmlen) {
-    const char func[] = "_v3_audio_send";
-
     _v3_connection *v3c;
     const v3_codec *codec;
     uint8_t pcmbuf[1 << 16];
@@ -118,7 +112,7 @@ _v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, 
     uint8_t celtfragsize;
     int ret = V3_OK;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     channels = (channels == 2) ? 2 : 1;
     v3c = _v3_handles[v3h];
@@ -127,7 +121,7 @@ _v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, 
 
     if (!v3_codec_valid(codec)) {
         _v3_error(v3h, "invalid or unsupported codec");
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return V3_FAILURE;
     }
     if (rate != codec->rate) {
@@ -159,19 +153,19 @@ _v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, 
                 (void *)pcmbuf,
                 &out_len))) {
             _v3_error(v3h, "resampler error: %i: %s", err, speex_resampler_strerror(err));
-            _v3_leave(v3h, func);
+            _v3_leave(v3h, __func__);
             return V3_FAILURE;
         }
         pcmbuflen = out_len * sizeof(int16_t) * channels;
 #else
         _v3_error(v3h, "resampler needed for output rate (in: %uHz != out: %uHz)", rate, codec->rate);
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return V3_FAILURE;
 #endif
     } else {
         if (pcmlen > sizeof(pcmbuf)) {
             _v3_error(v3h, "pcm length larger than buffer size (%u > %lu)", pcmlen, sizeof(pcmbuf));
-            _v3_leave(v3h, func);
+            _v3_leave(v3h, __func__);
             return V3_FAILURE;
         }
         memcpy(pcmbuf, pcm, pcmlen);
@@ -189,7 +183,7 @@ _v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, 
 #endif
           default:
             pcmbuflen /= 2;
-            for (ctr = 0; ctr < pcmbuflen; ctr++) {
+            for (ctr = 0; ctr < pcmbuflen; ++ctr) {
                 sample[ctr] = sample[ctr*2] / 2 + sample[ctr*2+1] / 2;
             }
             channels = 1;
@@ -267,7 +261,7 @@ _v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, 
         v3c->pcmqueued += rd;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
@@ -287,16 +281,14 @@ _v3_audio_encode(
         uint8_t channels,
         uint16_t *framecount,
         uint8_t *celtfragsize) {
-    const char func[] = "_v3_audio_encode";
-
     uint32_t maxdatalen;
     size_t ctr;
     int ret = V3_OK;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     if (!pcm || !pcmlen || !coder || !data || !datalen || (datalen && !*datalen)) {
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return V3_FAILURE;
     }
 
@@ -326,7 +318,7 @@ _v3_audio_encode(
                 coder->format = format;
                 coder->encoder = true;
             }
-            for (ctr = 0; ctr < pcmlen / codec->framesize && *datalen + 65 <= maxdatalen; ctr++) {
+            for (ctr = 0; ctr < pcmlen / codec->framesize && *datalen + 65 <= maxdatalen; ++ctr) {
                 gsm_encode(coder->state, (void *)pcm, (void *)data);
                 gsm_encode(coder->state, (void *)pcm+(codec->framesize/2), (void *)data+32);
                 pcm      += codec->framesize;
@@ -390,7 +382,7 @@ _v3_audio_encode(
                 coder->channels = channels;
                 coder->encoder = true;
             }
-            for (ctr = 0; ctr < pcmlen / (codec->framesize * channels) && *datalen + fragsize <= maxdatalen; ctr++) {
+            for (ctr = 0; ctr < pcmlen / (codec->framesize * channels) && *datalen + fragsize <= maxdatalen; ++ctr) {
                 *data++ = framesize;
                 celt_encode(coder->state, (void *)pcm, NULL, (void *)data, framesize);
                 pcm      += codec->framesize * channels;
@@ -444,7 +436,7 @@ _v3_audio_encode(
             data     += sizeof(uint16_t);
             *datalen += sizeof(uint16_t);
             speex_bits_init(&bits);
-            for (ctr = 0; ctr < pcmlen / codec->framesize && *datalen + maxspxbuf <= maxdatalen; ctr++) {
+            for (ctr = 0; ctr < pcmlen / codec->framesize && *datalen + maxspxbuf <= maxdatalen; ++ctr) {
                 speex_encode_int(coder->state, (void *)pcm, &bits);
                 framesize = speex_bits_write(&bits, (void *)data + sizeof(uint16_t), maxspxbuf);
                 speex_bits_reset(&bits);
@@ -466,7 +458,7 @@ _v3_audio_encode(
         break;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
@@ -485,15 +477,13 @@ _v3_audio_decode(
         /* optional args */
         uint32_t *rate,
         uint8_t channels) {
-    const char func[] = "_v3_audio_decode";
-
     uint32_t maxpcmlen;
     int ret = V3_OK;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     if (!coder || !data || !datalen || !pcm || !pcmlen || (pcmlen && !*pcmlen)) {
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return V3_FAILURE;
     }
 
@@ -666,7 +656,7 @@ _v3_audio_decode(
         break;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
@@ -674,15 +664,13 @@ const v3_codec *
 v3_codec_get(int16_t index, int16_t format) {
     int ctr;
 
-    for (ctr = 0; v3_codecs[ctr].index >= 0 && (v3_codecs[ctr].index != index || v3_codecs[ctr].format != format); ctr++);
+    for (ctr = 0; v3_codecs[ctr].index >= 0 && (v3_codecs[ctr].index != index || v3_codecs[ctr].format != format); ++ctr);
 
     return &v3_codecs[ctr];
 }
 
 const v3_codec *
 v3_codec_channel_get(v3_handle v3h, uint16_t id) {
-    const char func[] = "v3_codec_channel_get";
-
     _v3_connection *v3c;
     const v3_codec *codec;
     v3_channel c = { .id = id, .codec_index = -1, .codec_format = -1 };
@@ -690,7 +678,7 @@ v3_codec_channel_get(v3_handle v3h, uint16_t id) {
     if (_v3_handle_valid(v3h) != V3_OK || !v3_logged_in(v3h)) {
         return v3_codec_get(-1, -1);
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     if (id) {
         _v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_CHANNEL, &c, 0);
@@ -702,29 +690,27 @@ v3_codec_channel_get(v3_handle v3h, uint16_t id) {
         codec = v3_codec_get(v3c->codec_index, v3c->codec_format);
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return codec;
 }
 
 const v3_codec *
 v3_codec_user_get(v3_handle v3h, uint16_t id) {
-    const char func[] = "v3_codec_user_get";
-
     const v3_codec *codec;
     v3_user u = { .id = id };
 
     if (_v3_handle_valid(v3h) != V3_OK || !v3_logged_in(v3h)) {
         return v3_codec_get(-1, -1);
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     if (_v3_data(v3h, V3_DATA_RETURN, V3_DATA_TYPE_USER, &u, 0) == V3_OK) {
         codec = v3_codec_channel_get(v3h, u.channel);
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return codec;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return v3_codec_get(-1, -1);
 }
 
@@ -750,40 +736,34 @@ v3_volume_master_get(void) {
 
 int
 v3_volume_server_set(v3_handle v3h, float level) {
-    const char func[] = "v3_volume_server_set";
-
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_handles[v3h]->volume = level;
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return V3_OK;
 }
 
 float
 v3_volume_server_get(v3_handle v3h) {
-    const char func[] = "v3_volume_server_get";
-
     float ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return 0;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     ret = _v3_handles[v3h]->volume;
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_volume_user_set(v3_handle v3h, uint16_t id, float level) {
-    const char func[] = "v3_volume_user_set";
-
     _v3_connection *v3c;
     v3_user u = { .id = id };
     int ret = V3_OK;
@@ -791,7 +771,7 @@ v3_volume_user_set(v3_handle v3h, uint16_t id, float level) {
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_mutex_lock(v3h);
 
@@ -807,14 +787,12 @@ v3_volume_user_set(v3_handle v3h, uint16_t id, float level) {
 
     _v3_mutex_unlock(v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 float
 v3_volume_user_get(v3_handle v3h, uint16_t id) {
-    const char func[] = "v3_volume_user_get";
-
     _v3_connection *v3c;
     v3_user u = { .id = id };
     float ret = 0;
@@ -822,7 +800,7 @@ v3_volume_user_get(v3_handle v3h, uint16_t id) {
     if (_v3_handle_valid(v3h) != V3_OK) {
         return 0;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
 
@@ -834,7 +812,7 @@ v3_volume_user_get(v3_handle v3h, uint16_t id) {
         ret = u.volume;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 

@@ -1,27 +1,27 @@
 /*
  * vim: softtabstop=4 shiftwidth=4 cindent foldmethod=marker expandtab
  *
- * $LastChangedDate: 2010-06-22 18:45:01 -0700 (Tue, 22 Jun 2010) $
- * $Revision: 955 $
- * $LastChangedBy: Haxar $
- * $URL: http://svn.mangler.org/mangler/trunk/jukebox/jukebox.c $
+ * $LastChangedDate$
+ * $Revision$
+ * $LastChangedBy$
+ * $URL$
  *
- * Copyright 2009-2010 Eric Kilfoil
+ * Copyright 2009-2011 Eric Connell
  *
- * This file is part of Mangler.
+ * This file is part of libventrilo3.
  *
- * Mangler is free software: you can redistribute it and/or modify
+ * libventrilo3 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Mangler is distributed in the hope that it will be useful,
+ * libventrilo3 is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Mangler.  If not, see <http://www.gnu.org/licenses/>.
+ * along with libventrilo3.  If not, see <http://www.gnu.org/licenses/>.
  *
  *
  ******************************************************************
@@ -63,24 +63,48 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
-#include <strings.h>
-#include <sys/time.h>
-#include <sys/types.h>
 #include <dirent.h>
-#include <sys/stat.h>
-#include <getopt.h>
-#include <pthread.h>
 #include <libgen.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/stat.h>
+#include <pthread.h>
 
 #include <ventrilo3.h>
 
 #include <mpg123.h>
 
+#ifndef HAVE_VORBIS
+# define HAVE_VORBIS 0
+#endif
+#ifndef HAVE_FLAC
+# define HAVE_FLAC 0
+#endif
+
+#if HAVE_VORBIS || HAVE_FLAC
+static const char vorbis_artist[] = "ARTIST=";
+static const char vorbis_title[] = "TITLE=";
+static const char vorbis_album[] = "ALBUM=";
+
+typedef struct {
+    int16_t  buf[1 << 15];
+    uint32_t len;
+} pcm_data_t;
+
+pcm_data_t pcmd;
+#endif
+
+#if !HAVE_VORBIS
+# warning "Vorbis support not enabled."
+#else
+# warning "Vorbis support enabled."
+# include <vorbis/vorbisfile.h>
+#endif
+
 #if !HAVE_FLAC
 # warning "FLAC support not enabled."
 #else
 # warning "FLAC support enabled."
-
 # include <FLAC/stream_decoder.h>
 # include <FLAC/metadata.h>
 
@@ -116,26 +140,20 @@
 
 # define FLAC_METADATA_STREAMINFO       FLAC__METADATA_TYPE_STREAMINFO
 # define FLAC_METADATA_VORBIS_COMMENT   FLAC__METADATA_TYPE_VORBIS_COMMENT
-
-typedef struct {
-    int16_t  buf[1 << 15];
-    uint32_t len;
-} flac_data_t;
-
-flac_data_t fld;
-
 #endif
 
-#ifdef WIN32
+#ifndef WIN32
+# define FAIL32
+#else
 # include <winsock.h>
-# define FAIL32 WSADATA w; WSAStartup(MAKEWORD(1, 0), &w);
+# define FAIL32 do { WSADATA w; WSAStartup(MAKEWORD(1, 0), &w); } while (0)
 # undef strcasestr
 # include <ctype.h>
 char *
-strcasestr(char *haystack, char *needle) {
+strcasestr(const char *haystack, const char *needle) {
     char *p, *startn = 0, *np = 0;
 
-    for (p = haystack; *p; p++) {
+    for (p = haystack; *p; ++p) {
         if (np) {
             if (toupper(*p) == toupper(*np)) {
                 if (!*++np)
@@ -150,8 +168,6 @@ strcasestr(char *haystack, char *needle) {
 
     return 0;
 }
-#else
-# define FAIL32
 #endif
 
 #define false   0
@@ -169,7 +185,8 @@ struct _conninfo {
 struct _musicfile {
     void *mh;
     char *filename;
-    int flac;
+    char vorbis;
+    char flac;
     int rate;
     int channels;
     int invalid;
@@ -190,9 +207,9 @@ typedef struct _channel_node {
 } channel_node;
 
 // global vars
+int interrupted = false;
 v3_handle v3h;
 int debug = 0;
-int should_exit = false;
 musicfile **musiclist;
 int musicfile_count = 0;
 int media_pathlen = 0;
@@ -200,12 +217,8 @@ int disable_stereo = false;
 channel_node *chantree = NULL;
 
 // prototypes
-void usage(char *argv[]);
-void ctrl_c(int signum);
-void *jukebox_player(void *connptr);
 void *open_file(musicfile *musicfile, const v3_codec *codec);
 int get_pcm_frame(musicfile *musicfile, int channels, int16_t *buf, int *pcmread);
-uint64_t timediff(const struct timeval *left, const struct timeval *right);
 void close_file(musicfile *musicfile);
 int get_id3_info(musicfile *musicfile);
 char *id3strdup(mpg123_string *inlines);
@@ -215,15 +228,28 @@ void add_channel(channel_node *lobby_node, v3_channel *chan);
 int select_channel(void);
 void shuffle_musiclist(void);
 
-void ctrl_c(int signum) {
-    fprintf(stderr, "disconnecting... ");
-    v3_logout(v3h);
-    fprintf(stderr, "done\n");
+void interrupt(int signum) {
+    (void)signum;
+    if (!v3_logged_in(v3h)) {
+        v3_login_cancel(v3h);
+    } else if (!interrupted) {
+        interrupted = true;
+        fprintf(stderr, "disconnecting... ");
+        v3_logout(v3h);
+    }
 }
 
 void usage(char *argv[]) {
     fprintf(stderr, "usage: %s -h hostname:port -u username [-p password] [-c channelid] [-v volume_multipler] [-s disable stereo for celt] [-n don't shuffle] /path/to/music\n", argv[0]);
     exit(EXIT_FAILURE);
+}
+
+uint64_t timediff(const struct timeval *left, const struct timeval *right) {
+    int64_t ret, lval, rval;
+    lval = left->tv_sec * 1000000 + left->tv_usec;
+    rval = right->tv_sec * 1000000 + right->tv_usec;
+    ret = rval - lval;
+    return ret;
 }
 
 void *jukebox_player(void *connptr) {
@@ -233,6 +259,7 @@ void *jukebox_player(void *connptr) {
     int playing = false;
     int stopped = true;
     int filenum = -1;
+    int playonce = false;
     int16_t sendbuf[16384];
     struct timeval tm_start, tm_end;
     uint64_t audio_dur, code_dur;
@@ -248,16 +275,12 @@ void *jukebox_player(void *connptr) {
     v3_user *u = &ev.user;
 
     gettimeofday(&last_audio, NULL);
-
-    while (!should_exit && v3_logged_in(v3h)) {
+    while (v3_logged_in(v3h)) {
         if (v3_event_get(v3h, (stopped) ? V3_BLOCK : V3_NONBLOCK, &ev) == V3_OK) {
             if (debug) {
                 fprintf(stderr, "jukebox: got event type %d\n", ev.type);
             }
             switch (ev.type) {
-                case V3_EVENT_LOGOUT:
-                    should_exit = true;
-                    continue;
                 case V3_EVENT_LOGIN:
                     codec = v3_codec_channel_get(v3h, 0);
                     if (debug) {
@@ -309,6 +332,7 @@ void *jukebox_player(void *connptr) {
                         v3_chat_message(v3h, "!next -- play a new random track");
                         v3_chat_message(v3h, "!move -- move to your channel");
                         v3_chat_message(v3h, "!play [song/artist/file name] -- search for a song by filename and play the first random match");
+                        v3_chat_message(v3h, "!playonce [song/artist/file name] -- play a single file and stop");
                         v3_chat_message(v3h, "!playonly [song/artist/file name] -- don't play anything that doesn't match the given string");
                         v3_chat_message(v3h, "!vol [0-100] -- set the volume to the specified level: ex: !vol 50");
                         v3_chat_message(v3h, "!polite [off|0-60] -- pauses playing when audio is received for the specified duration");
@@ -352,22 +376,28 @@ void *jukebox_player(void *connptr) {
                         } else if (vol > 100) {
                             vol = 100;
                         }
+                        v3_volume_user_set(v3h, v3_luser_id(v3h), vol / 100.0);
                         char chat_msg[64];
                         snprintf(chat_msg, 63, "volume is now %d%%", vol);
-                        v3_volume_user_set(v3h, v3_luser_id(v3h), vol / 100.0);
                         v3_chat_message(v3h, chat_msg);
-                    } else if (strncmp(ev.data.message, "!play ", 6) == 0 || strncmp(ev.data.message, "!playonly ", 10) == 0) {
+                    } else if (strncmp(ev.data.message, "!play ", 6) == 0
+                            || strncmp(ev.data.message, "!playonly ", 10) == 0
+                            || strncmp(ev.data.message, "!playonce ", 10) == 0) {
                         char *searchspec;
                         int ctr;
                         int found = false;
                         if (strncmp(ev.data.message, "!playonly ", 10) == 0) {
                             strncpy(playonly, ev.data.message + 10, 64);
                             searchspec = playonly;
+                        } else if (strncmp(ev.data.message, "!playonce ", 10) == 0) {
+                            playonce = true;
+                            searchspec = ev.data.message + 10;
+                            playonly[0] = 0;
                         } else {
                             searchspec = ev.data.message + 6;
                             playonly[0] = 0;
                         }
-                        for (ctr = 0; ctr < musicfile_count; ctr++) {
+                        for (ctr = 0; ctr < musicfile_count; ++ctr) {
                             // make sure we have at least 1 thing that matches
                             // so  we don't end up in an endless loop
                             if (strcasestr(musiclist[ctr]->path, searchspec)) { 
@@ -388,8 +418,8 @@ void *jukebox_player(void *connptr) {
                             }
                             // we have SOMETHING in the filelist that matches, but no guarantee that it's a song... try 10
                             // different matches before giving up
-                            for (attempts = 0; attempts < 20; attempts++) {
-                                filenum++;
+                            for (attempts = 0; attempts < 20; ++attempts) {
+                                ++filenum;
                                 if (filenum >= musicfile_count) filenum = 0;
                                 if (debug) {
                                     fprintf(stderr, "checking for %s: %s\n", searchspec, musiclist[filenum]->path);
@@ -397,7 +427,7 @@ void *jukebox_player(void *connptr) {
                                 if (strcasestr(musiclist[filenum]->path, searchspec) == 0) {
                                     // this file didn't match, so just get a new random file and don't count this
                                     // attempt
-                                    attempts--;
+                                    --attempts;
                                     continue;
                                 }
                                 if (debug) {
@@ -420,6 +450,7 @@ void *jukebox_player(void *connptr) {
                                 // give up and just pick a random song
                                 v3_chat_message(v3h, "Apparently something matched but it didn't appear to be a song, so I fail.  Here's something else...");
                                 stopped = false;
+                                playonce = false;
                             }
                         }
                     } else if (! stopped && strcmp(ev.data.message, "!next") == 0) {
@@ -454,7 +485,7 @@ void *jukebox_player(void *connptr) {
         if (connected && ! stopped && (politeness < 0 || timediff(&last_audio, &now) >= politeness * 1000000 + 500000 )) {
             if (! playing) {
                 while (! musicfile) {
-                    filenum++;
+                    ++filenum;
                     if (filenum >= musicfile_count) filenum = 0;
                     if (strlen(playonly) && !strcasestr(musiclist[filenum]->path, playonly)) {
                         continue;
@@ -503,6 +534,10 @@ void *jukebox_player(void *connptr) {
                     close_file(musicfile);
                     musicfile = NULL;
                 }
+                if (playonce) {
+                    stopped = true;
+                    playonce = false;
+                }
                 playing = false;
             }
         }
@@ -517,7 +552,7 @@ void send_now_playing(int filenum) {
     musicfile *musicfile = musiclist[filenum];
     char msgbuf[255] = "";
 
-    if (!musicfile->flac && !get_id3_info(musicfile)) {
+    if (!musicfile->vorbis && !musicfile->flac && !get_id3_info(musicfile)) {
         if (debug) {
             fprintf(stderr, "no valid id3 tag: %s\n", musicfile->path);
         }
@@ -576,8 +611,7 @@ void read_playlist_file(char *path) {
             temp = strdup(buf);
             strcpy(buf, basepath);
             i = strlen(buf);
-            buf[i] = '/';
-            i++;
+            buf[i++] = '/';
             strncpy(buf + i, temp, 4096 - i);
             free(temp);
         }
@@ -596,7 +630,7 @@ void read_playlist_file(char *path) {
         musiclist[musicfile_count] = malloc(sizeof(musicfile));
         memset(musiclist[musicfile_count], 0, sizeof(musicfile));
         musiclist[musicfile_count]->path = strdup(buf);
-        musicfile_count++;
+        ++musicfile_count;
         if (debug) {
             fprintf(stderr, "added file #%d: %s\n", musicfile_count, buf);
         }
@@ -643,6 +677,9 @@ void scan_media_path(char *path) {
         } else {
             cptr = namebuf + strlen(namebuf);
             if (!strcasecmp(cptr-4, ".mp3")
+#if HAVE_VORBIS
+            || !strcasecmp(cptr-4, ".ogg")
+#endif
 #if HAVE_FLAC
             || !strcasecmp(cptr-5, ".flac")
 #endif
@@ -651,6 +688,9 @@ void scan_media_path(char *path) {
                 musiclist[musicfile_count] = malloc(sizeof(musicfile));
                 memset(musiclist[musicfile_count], 0, sizeof(musicfile));
                 musiclist[musicfile_count]->path = strdup(namebuf);
+#if HAVE_VORBIS
+                musiclist[musicfile_count]->vorbis = !strcasecmp(cptr-4, ".ogg");
+#endif
 #if HAVE_FLAC
                 musiclist[musicfile_count]->flac = !strcasecmp(cptr-5, ".flac");
 #endif
@@ -660,7 +700,7 @@ void scan_media_path(char *path) {
                    continue;
                    }
                  */
-                musicfile_count++;
+                ++musicfile_count;
                 if (debug) {
                     fprintf(stderr, "found file #%d: %s\n", musicfile_count, namebuf);
                 }
@@ -744,14 +784,13 @@ char *id3strdup(mpg123_string *inlines) {
     }
 
     line = lines;
-    for(i=0; i<len; ++i) {
-        if(lines[i] == '\n' || lines[i] == '\r' || lines[i] == 0) {
+    for (i = 0; i < len; ++i) {
+        if (lines[i] == '\n' || lines[i] == '\r' || lines[i] == 0) {
             char save = lines[i]; /* saving, changing, restoring a byte in the data */
-            if(save == '\n') ++hadlf;
-            if(save == '\r') ++hadcr;
-            if((hadcr || hadlf) && hadlf % 2 == 0 && hadcr % 2 == 0) line = "";
-
-            if(line) {
+            if (save == '\n') ++hadlf;
+            if (save == '\r') ++hadcr;
+            if ((hadcr || hadlf) && hadlf % 2 == 0 && hadcr % 2 == 0) line = "";
+            if (line) {
                 lines[i] = 0;
                 ret = strdup(line);
                 return ret;
@@ -761,7 +800,7 @@ char *id3strdup(mpg123_string *inlines) {
             }
         } else {
             hadlf = hadcr = 0;
-            if(line == NULL) line = lines+i;
+            if (line == NULL) line = lines + i;
         }
     }
     return NULL;
@@ -774,14 +813,14 @@ flac_write(const flac_dec *dec, const flac_frame_t *frame, const flac_int32_t *c
     uint8_t channels = flac_dec_get_channels(dec);
     uint32_t ctr;
 
-    if (frame->header.blocksize * channels > sizeof(fld.buf)) {
-        fprintf(stderr, "error: flac_write: blocksize * channels %i > buffer %lu bytes\n", frame->header.blocksize * channels, sizeof(fld.buf));
+    if (frame->header.blocksize * channels > sizeof(pcmd.buf)) {
+        fprintf(stderr, "error: flac_write: blocksize * channels %i > buffer %lu bytes\n", frame->header.blocksize * channels, sizeof(pcmd.buf));
         return FLAC_DEC_WRITE_ABORT;
     }
-    for (ctr = 0, fld.len = 0; ctr < frame->header.blocksize * channels; ctr++) {
-        fld.buf[fld.len++] = buf[0][ctr];
+    for (ctr = 0, pcmd.len = 0; ctr < frame->header.blocksize * channels; ++ctr) {
+        pcmd.buf[pcmd.len++] = buf[0][ctr];
         if (channels == 2) {
-            fld.buf[fld.len++] = buf[1][ctr];
+            pcmd.buf[pcmd.len++] = buf[1][ctr];
         }
     }
 
@@ -814,11 +853,57 @@ void *open_file(musicfile *musicfile, const v3_codec *codec) {
     mpg123_pars *mp;
     int result;
 
+#if HAVE_VORBIS
+    if (musicfile->vorbis) {
+        vorbis_info *vi;
+        vorbis_comment *vc;
+        char *comment;
+        int ctr;
+
+        pcmd.len = 0;
+        musicfile->mh = malloc(sizeof(OggVorbis_File));
+        if ((err = ov_fopen(musicfile->path, musicfile->mh))) {
+            fprintf(stderr, "error: ov_fopen: %i\n", err);
+            close_file(musicfile);
+            return NULL;
+        }
+        if (!(vi = ov_info(musicfile->mh, -1))) {
+            fprintf(stderr, "error: ov_info: corrupted stream?\n");
+            close_file(musicfile);
+            return NULL;
+        }
+        musicfile->rate = vi->rate;
+        musicfile->channels = vi->channels;
+        if (!(vc = ov_comment(musicfile->mh, -1))) {
+            fprintf(stderr, "error: ov_comment: corrupted stream?\n");
+            close_file(musicfile);
+            return NULL;
+        }
+        for (ctr = 0; ctr < vc->comments; ++ctr) {
+            comment = vc->user_comments[ctr];
+            if (!strncasecmp(comment, vorbis_artist, sizeof(vorbis_artist) - 1)) {
+                if (musicfile->artist) {
+                    free(musicfile->artist);
+                }
+                musicfile->artist = strdup(comment + sizeof(vorbis_artist) - 1);
+            } else if (!strncasecmp(comment, vorbis_title, sizeof(vorbis_title) - 1)) {
+                if (musicfile->title) {
+                    free(musicfile->title);
+                }
+                musicfile->title = strdup(comment + sizeof(vorbis_title) - 1);
+            } else if (!strncasecmp(comment, vorbis_album, sizeof(vorbis_album) - 1)) {
+                if (musicfile->album) {
+                    free(musicfile->album);
+                }
+                musicfile->album = strdup(comment + sizeof(vorbis_album) - 1);
+            }
+        }
+
+        return musicfile;
+    }
+#endif
 #if HAVE_FLAC
     if (musicfile->flac) {
-        static const char vorbis_artist[] = "ARTIST=";
-        static const char vorbis_title[] = "TITLE=";
-        static const char vorbis_album[] = "ALBUM=";
         flac_metadata_t *tags;
         void *comment;
         uint32_t ctr;
@@ -843,7 +928,7 @@ void *open_file(musicfile *musicfile, const v3_codec *codec) {
             return NULL;
         }
         if (flac_metadata_get_tags(musicfile->path, &tags)) {
-            for (ctr = 0; ctr < tags->data.vorbis_comment.num_comments; ctr++) {
+            for (ctr = 0; ctr < tags->data.vorbis_comment.num_comments; ++ctr) {
                 comment = tags->data.vorbis_comment.comments[ctr].entry;
                 if (!strncasecmp(comment, vorbis_artist, sizeof(vorbis_artist) - 1)) {
                     if (musicfile->artist) {
@@ -924,23 +1009,57 @@ int get_pcm_frame(musicfile *musicfile, int channels, int16_t *buf, int *pcmread
     int err;
     int ctr;
 
+    if (musicfile->channels == 1) {
+        channels = 1;
+    }
+#if HAVE_VORBIS
+    if (musicfile->vorbis) {
+        int ret;
+
+        while (pcmd.len < channels**pcmread && (ret = ov_read(musicfile->mh, (void *)readbuffer, sizeof(pcmd.buf) - pcmd.len, 0, 2, 1, NULL)) > 0) {
+            if (debug) {
+                fprintf(stderr, "got %i pcm bytes from vorbis\n", ret);
+            }
+            memcpy((void *)pcmd.buf + pcmd.len, readbuffer, ret);
+            pcmd.len += ret;
+        }
+        if (debug) {
+            fprintf(stderr, "%u pcm bytes in buffer\n", pcmd.len);
+        }
+        if (!pcmd.len) {
+            return false;
+        }
+        if (channels == 1) {
+            memcpy(buf, pcmd.buf, *pcmread);
+        } else for (ctr = 0; ctr < *pcmread/2; ++ctr) {
+            buf[ctr] = (pcmd.buf[ctr*2] + pcmd.buf[ctr*2+1]) / 2;
+        }
+        if (pcmd.len < channels**pcmread) {
+            pcmd.len = 0;
+        } else {
+            memmove(pcmd.buf, (void *)pcmd.buf + channels**pcmread, sizeof(pcmd.buf) - channels**pcmread);
+            pcmd.len -= channels**pcmread;
+        }
+        return true;
+    }
+#endif
 #if HAVE_FLAC
     if (musicfile->flac) {
-        fld.len = 0;
+        pcmd.len = 0;
         while (flac_dec_get_state(musicfile->mh) != FLAC_DEC_END_OF_STREAM && flac_dec_process_single(musicfile->mh)) {
             if (debug) {
-                fprintf(stderr, "got %u pcm bytes from flac\n", fld.len);
+                fprintf(stderr, "got %u pcm bytes from flac\n", pcmd.len);
                 fprintf(stderr, "flac state: %s\n", flac_dec_get_state_string(musicfile->mh));
             }
-            if (!fld.len) {
+            if (!pcmd.len) {
                 continue;
             }
             if (channels == 1) {
-                memcpy(buf, fld.buf, fld.len);
-            } else for (ctr = 0; ctr < fld.len/2; ctr++) {
-                buf[ctr] = (fld.buf[ctr*2] + fld.buf[ctr*2+1]) / 2;
+                memcpy(buf, pcmd.buf, pcmd.len);
+            } else for (ctr = 0; ctr < pcmd.len/2; ++ctr) {
+                buf[ctr] = (pcmd.buf[ctr*2] + pcmd.buf[ctr*2+1]) / 2;
             }
-            *pcmread = fld.len / channels;
+            *pcmread = pcmd.len / channels;
             return true;
         }
         return false;
@@ -957,8 +1076,8 @@ int get_pcm_frame(musicfile *musicfile, int channels, int16_t *buf, int *pcmread
         }
         readptr = (int16_t *)readbuffer;
         if (channels == 1) { // no channels to mix; this is for celt stereo mode
-            memcpy(buf, &readbuffer, *pcmread);
-        } else for (ctr = 0; ctr < *pcmread/2; ctr++) {
+            memcpy(buf, readbuffer, *pcmread);
+        } else for (ctr = 0; ctr < *pcmread/2; ++ctr) {
             buf[ctr] = (readptr[ctr*2] + readptr[ctr*2+1]) / 2;
         }
         return true;
@@ -970,6 +1089,14 @@ void close_file(musicfile *musicfile) {
     if (!musicfile || !musicfile->mh) {
         return;
     }
+#if HAVE_VORBIS
+    if (musicfile->vorbis) {
+        ov_clear(musicfile->mh);
+        free(musicfile->mh);
+        musicfile->mh = NULL;
+        return;
+    }
+#endif
 #if HAVE_FLAC
     if (musicfile->flac) {
         flac_dec_destroy(musicfile->mh);
@@ -1020,8 +1147,7 @@ void add_channel(channel_node *lobby_node, v3_channel *chan) {
         if (!p) p = lobby_node;
     }
     if (p) {
-        p->children[p->childcount] = malloc(sizeof(channel_node));
-        memset(p->children[p->childcount], 0, sizeof(channel_node));
+        p->children[p->childcount] = calloc(1, sizeof(channel_node));
         if (p->children[p->childcount]) {
             strncpy(p->children[p->childcount]->name, chan->name, 40);
             p->children[p->childcount]->id = chan->id;
@@ -1068,7 +1194,7 @@ main(int argc, char **argv) {
     while ((opt = getopt(argc, argv, "dh:p:u:c:nsv:")) != -1) {
         switch (opt) {
             case 'd':
-                debug++;
+                ++debug;
                 break;
             case 'h':
                 conninfo.server = optarg;
@@ -1120,7 +1246,7 @@ main(int argc, char **argv) {
     scan_media_path(conninfo.path);
     fprintf(stderr, "found %d files in music path\n", musicfile_count);
     if (!musicfile_count) {
-        return EXIT_FAILURE;
+        return 1;
     }
     if (shuffle) {
         srand(time(NULL));
@@ -1140,32 +1266,30 @@ main(int argc, char **argv) {
     }
     if ((v3h = v3_init(conninfo.server, conninfo.username)) == V3_HANDLE_NONE) {
         fprintf(stderr, "v3_init() error: %s\n", v3_error(v3h));
-        return EXIT_FAILURE;
+        return 1;
     }
     if (debug >= 2) {
         v3_debug(v3h, V3_DBG_ALL);
     }
     v3_password(v3h, conninfo.password);
-    signal(SIGINT, ctrl_c);
+    signal(SIGINT, interrupt);
     if (v3_login(v3h) != V3_OK) {
         fprintf(stderr, "v3_login() error: %s\n", v3_error(v3h));
-        return EXIT_FAILURE;
+        v3_destroy(v3h);
+        return 1;
     }
     v3_volume_user_set(v3h, v3_luser_id(v3h), volume);
     pthread_create(&player, NULL, jukebox_player, &conninfo);
     if (v3_iterate(v3h, V3_BLOCK, 0) != V3_OK) {
         fprintf(stderr, "v3_iterate() error: %s\n", v3_error(v3h));
+        v3_destroy(v3h);
+        return 1;
+    }
+    pthread_join(player, NULL);
+    if (interrupted) {
+        fprintf(stderr, "done\n");
     }
     v3_destroy(v3h);
 
-    return EXIT_SUCCESS;
+    return 0;
 }
-
-uint64_t timediff(const struct timeval *left, const struct timeval *right) {
-    int64_t ret, lval, rval;
-    lval = left->tv_sec * 1000000 + left->tv_usec;
-    rval = right->tv_sec * 1000000 + right->tv_usec;
-    ret = rval - lval;
-    return ret;
-}
-

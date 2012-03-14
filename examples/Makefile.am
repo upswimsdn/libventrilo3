@@ -25,6 +25,7 @@ dev:
 jukebox:
 	cd ../src/ && make dev
 	gcc -pthread -Wall -g -I.. -I../src/ -o jukebox \
+		`if pkg-config vorbisfile; then echo -n "-DHAVE_VORBIS"; fi` \
 		`if pkg-config flac; then echo -n "-DHAVE_FLAC"; fi` \
 		jukebox.c \
 		../src/libventrilo3.o \
@@ -32,7 +33,8 @@ jukebox:
 		$(celt_LIBS) \
 		$(speexdsp_LIBS) \
 		-lmpg123 \
-		`if pkg-config flac; then echo -n "-lFLAC"; fi` \
+		`pkg-config --silence-errors --libs vorbisfile` \
+		`pkg-config --silence-errors --libs flac` \
 		$(LIBS) \
 		-lm
 

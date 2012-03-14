@@ -6,7 +6,7 @@
  * $LastChangedBy$
  * $URL$
  *
- * Copyright 2009-2010 Eric Kilfoil
+ * Copyright 2009-2011 Eric Connell
  *
  * This file is part of libventrilo3.
  *
@@ -40,7 +40,7 @@
 #define V3_MAX_CONN 64
 
 typedef struct _v3_connection   _v3_connection;
-typedef struct ventrilo_key_ctx ventrilo_key_ctx;
+typedef struct v3_key_ctx       v3_key_ctx;
 
 pthread_mutex_t _v3_handles_mutex        = PTHREAD_MUTEX_INITIALIZER;
 _v3_connection *_v3_handles[V3_MAX_CONN] = { NULL };
@@ -75,8 +75,8 @@ struct _v3_connection {
     v3_user             luser;
     v3_account          lacct;
 
-    ventrilo_key_ctx *  client_key;
-    ventrilo_key_ctx *  server_key;
+    v3_key_ctx *        client_key;
+    v3_key_ctx *        server_key;
 
     uint8_t             logged_in;
 
@@ -201,7 +201,7 @@ const v3_codec v3_codecs[] = {
 };
 
 /* encryption.c / handshake.c */
-struct ventrilo_key_ctx {
+struct v3_key_ctx {
     uint8_t     key[256];
     uint32_t    pos;
     uint32_t    size;
@@ -280,9 +280,9 @@ typedef struct {
     uint32_t    vnum;
     char *      host;
     uint16_t    port;
-} ventrilo3_auth_t;
+} v3_auth_t;
 
-const ventrilo3_auth_t ventrilo3_auth[] = {
+const v3_auth_t v3_auth[] = {
     { 1,  "72.51.46.31",   6100 },
     { 2,  "64.34.178.178", 6100 },
     { 3,  "74.54.61.194",  6100 },
@@ -347,18 +347,18 @@ int         _v3_audio_decode(
 
 /* encryption.c */
 void        _v3_password(v3_handle v3h, const char *password, uint8_t *hash);
-int         _v3_read_keys(v3_handle v3h, ventrilo_key_ctx *client, ventrilo_key_ctx *server, uint8_t *data, uint32_t len);
+int         _v3_read_keys(v3_handle v3h, v3_key_ctx *client, v3_key_ctx *server, uint8_t *data, uint32_t len);
 void        _v3_dec_init(v3_handle v3h, uint8_t *data, uint32_t len);
 void        _v3_enc_init(v3_handle v3h, uint8_t *data, uint32_t len);
-void        _v3_decrypt(v3_handle v3h, ventrilo_key_ctx *ctx, uint8_t *data, uint32_t len);
-void        _v3_encrypt(v3_handle v3h, ventrilo_key_ctx *ctx, uint8_t *data, uint32_t len);
+void        _v3_decrypt(v3_handle v3h, v3_key_ctx *ctx, uint8_t *data, uint32_t len);
+void        _v3_encrypt(v3_handle v3h, v3_key_ctx *ctx, uint8_t *data, uint32_t len);
 
 /* handshake.c */
 int         _v3_handshake(v3_handle v3h);
-void        _v3_key_scramble(v3_handle v3h, ventrilo_key_ctx *ctx, uint8_t *v3key);
+void        _v3_key_scramble(v3_handle v3h, v3_key_ctx *ctx, uint8_t *v3key);
 uint16_t    _v3_udp_header(v3_handle v3h, uint32_t type, uint8_t *buf, uint8_t *pck);
 int         _v3_udp_send(v3_handle v3h, int sd, uint32_t vnum, uint32_t ip, uint16_t port, uint8_t *data, uint32_t len);
-int         _v3_udp_recv(v3_handle v3h, int sd, uint8_t *data, uint32_t maxsz, const ventrilo3_auth_t *vauth, uint16_t *handshake_idx);
+int         _v3_udp_recv(v3_handle v3h, int sd, uint8_t *data, uint32_t maxsz, const v3_auth_t *vauth, uint16_t *handshake_idx);
 
 /* message.c */
 int         _v3_msg_move_put(v3_handle v3h, uint16_t id, uint16_t channel);

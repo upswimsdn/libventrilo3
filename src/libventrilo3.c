@@ -6,7 +6,7 @@
  * $LastChangedBy$
  * $URL$
  *
- * Copyright 2009-2010 Eric Kilfoil
+ * Copyright 2009-2011 Eric Connell
  *
  * This file is part of libventrilo3.
  *
@@ -44,8 +44,8 @@
 # include <winsock.h>
 # define SHUT_WR SD_SEND
 #else
-# include <sys/socket.h>
 # include <sys/types.h>
+# include <sys/socket.h>
 # include <netinet/in.h>
 # include <netdb.h>
 # include <arpa/inet.h>
@@ -87,33 +87,31 @@
  */
 v3_handle
 v3_init(const char *server, const char *username) {
-    const char func[] = "v3_init";
-
     v3_handle v3h;
     _v3_connection *v3c;
     uint32_t ip;
     uint16_t port;
 
-    _v3_enter(V3_HANDLE_NONE, func);
+    _v3_enter(V3_HANDLE_NONE, __func__);
 
     if (!username || !*username) {
         _v3_error(V3_HANDLE_NONE, "no username specified");
-        _v3_leave(V3_HANDLE_NONE, func);
+        _v3_leave(V3_HANDLE_NONE, __func__);
         return V3_HANDLE_NONE;
     }
     if (_v3_parse_server(server, &ip, &port) != V3_OK) {
-        _v3_leave(V3_HANDLE_NONE, func);
+        _v3_leave(V3_HANDLE_NONE, __func__);
         return V3_HANDLE_NONE;
     }
 
     _v3_mutex_lock(V3_HANDLE_NONE);
 
-    for (v3h = 0; v3h < V3_MAX_CONN && _v3_handles[v3h]; v3h++);
+    for (v3h = 0; v3h < V3_MAX_CONN && _v3_handles[v3h]; ++v3h);
 
     if (v3h >= V3_MAX_CONN) {
         _v3_mutex_unlock(V3_HANDLE_NONE);
         _v3_error(V3_HANDLE_NONE, "maximum number of open handles reached: %i", V3_MAX_CONN);
-        _v3_leave(V3_HANDLE_NONE, func);
+        _v3_leave(V3_HANDLE_NONE, __func__);
         return V3_HANDLE_NONE;
     }
     _v3_handles[v3h] = calloc(1, sizeof(_v3_connection));
@@ -126,41 +124,39 @@ v3_init(const char *server, const char *username) {
     v3c->sd = -1;
     v3c->luser.volume = 1.0;
     v3c->volume = 1.0;
-    memcpy(v3c->luser.name, username, sizeof(v3c->luser.name) - 1);
+    strncpy(v3c->luser.name, username, sizeof(v3c->luser.name) - 1);
     _v3_debug(V3_HANDLE_NONE, V3_DBG_INFO, "username: '%s'", v3c->luser.name);
     _v3_mutex_init(v3h);
 
-    _v3_leave(V3_HANDLE_NONE, func);
+    _v3_leave(V3_HANDLE_NONE, __func__);
     return v3h;
 }
 
 v3_handle
 v3_find(const char *server, const char *username) {
-    const char func[] = "v3_find";
-
     v3_handle v3h;
     _v3_connection *v3c;
     uint32_t ip;
     uint16_t port;
 
-    _v3_enter(V3_HANDLE_NONE, func);
+    _v3_enter(V3_HANDLE_NONE, __func__);
 
     if (!username || !*username) {
         _v3_error(V3_HANDLE_NONE, "no username specified");
-        _v3_leave(V3_HANDLE_NONE, func);
+        _v3_leave(V3_HANDLE_NONE, __func__);
         return V3_HANDLE_NONE;
     }
     if (_v3_parse_server(server, &ip, &port) != V3_OK) {
-        _v3_leave(V3_HANDLE_NONE, func);
+        _v3_leave(V3_HANDLE_NONE, __func__);
         return V3_HANDLE_NONE;
     }
 
     _v3_mutex_lock(V3_HANDLE_NONE);
 
-    for (v3h = 0; v3h < V3_MAX_CONN && (v3c = _v3_handles[v3h]); v3h++) {
+    for (v3h = 0; v3h < V3_MAX_CONN && (v3c = _v3_handles[v3h]); ++v3h) {
         if (v3c->ip == ip && v3c->port == port && !strncmp(v3c->luser.name, username, sizeof(v3c->luser.name))) {
             _v3_mutex_unlock(V3_HANDLE_NONE);
-            _v3_leave(V3_HANDLE_NONE, func);
+            _v3_leave(V3_HANDLE_NONE, __func__);
             return v3h;
         }
     }
@@ -169,7 +165,7 @@ v3_find(const char *server, const char *username) {
 
     _v3_error(V3_HANDLE_NONE, "handle for server address '%s' username '%s' not found", server, username);
 
-    _v3_leave(V3_HANDLE_NONE, func);
+    _v3_leave(V3_HANDLE_NONE, __func__);
     return V3_HANDLE_NONE;
 }
 
@@ -180,20 +176,18 @@ v3_find(const char *server, const char *username) {
  */
 void
 v3_destroy(v3_handle v3h) {
-    const char func[] = "v3_destroy";
-
     _v3_connection *v3c;
 
-    _v3_enter(V3_HANDLE_NONE, func);
+    _v3_enter(V3_HANDLE_NONE, __func__);
 
     if (_v3_handle_valid(v3h) != V3_OK) {
-        _v3_leave(V3_HANDLE_NONE, func);
+        _v3_leave(V3_HANDLE_NONE, __func__);
         return;
     }
 
     _v3_mutex_lock(V3_HANDLE_NONE);
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_mutex_lock(v3h);
 
@@ -215,85 +209,77 @@ v3_destroy(v3_handle v3h) {
 
     _v3_debug(v3h, V3_DBG_INFO, "destroyed handle: %i", v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 
     free(_v3_handles[v3h]);
     _v3_handles[v3h] = NULL;
 
     _v3_mutex_unlock(V3_HANDLE_NONE);
 
-    _v3_leave(V3_HANDLE_NONE, func);
+    _v3_leave(V3_HANDLE_NONE, __func__);
 }
 
 int
 v3_password(v3_handle v3h, const char *password) {
-    const char func[] = "v3_password";
-
     _v3_connection *v3c;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
     strncpy(v3c->password, password, sizeof(v3c->password) - 1);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return V3_OK;
 }
 
 int
 v3_phonetic(v3_handle v3h, const char *phonetic) {
-    const char func[] = "v3_phonetic";
-
     _v3_connection *v3c;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
     strncpy(v3c->luser.phonetic, phonetic, sizeof(v3c->luser.phonetic) - 1);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return V3_OK;
 }
 
 int
 v3_default_channel_path(v3_handle v3h, const char *path) {
-    const char func[] = "v3_default_channel_path";
-
     _v3_connection *v3c;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
     strncpy(v3c->def_path, path, sizeof(v3c->def_path) - 1);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return V3_OK;
 }
 
 int
 v3_default_channel_id(v3_handle v3h, uint16_t id) {
-    const char func[] = "v3_default_channel_id";
-
     _v3_connection *v3c;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
     v3c->def_id = id;
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return V3_OK;
 }
 
@@ -322,12 +308,11 @@ _v3_handle_valid(v3_handle v3h) {
 void
 _v3_debug(v3_handle v3h, int level, const char *format, ...) {
     va_list args;
-    char str[1024] = "";
-    char buf[1024] = "";
-    char stamp[32] = "";
+    char str[1024];
+    char buf[1024];
+    char time[32];
     struct timeval tv;
     struct tm *tm;
-    int16_t stack = 0;
     int ctr;
 
     if ((v3h == V3_HANDLE_NONE && !(_debug & level)) ||
@@ -335,19 +320,14 @@ _v3_debug(v3_handle v3h, int level, const char *format, ...) {
         return;
     }
     va_start(args, format);
-    vsnprintf(str, sizeof(str) - 1, format, args);
+    vsnprintf(str, sizeof(str), format, args);
     va_end(args);
-    if (v3h == V3_HANDLE_NONE) {
-        stack = _stack;
-    } else {
-        stack = _v3_handles[v3h]->stack;
+    for (ctr = (v3h == V3_HANDLE_NONE) ? _stack : _v3_handles[v3h]->stack, *buf = 0; ctr > 0; --ctr) {
+        strncat(buf, "    ", sizeof(buf));
     }
-    for (ctr = 0; ctr < stack; ctr++) {
-        strncat(buf, "    ", sizeof(buf)-(strlen(buf)+1));
-    }
-    strncat(buf, str, sizeof(buf)-(strlen(buf)+1));
+    strncat(buf, str, sizeof(buf));
     gettimeofday(&tv, NULL);
-    if (!(tm = localtime(&tv.tv_sec)) || !strftime(stamp, sizeof(stamp), "%T", tm)) {
+    if (!(tm = localtime(&tv.tv_sec)) || !strftime(time, sizeof(time), "%T", tm)) {
 #ifndef ANDROID
         fprintf(stderr, "lv3 (%2i): %s\n", v3h, buf);
 #else
@@ -355,9 +335,9 @@ _v3_debug(v3_handle v3h, int level, const char *format, ...) {
 #endif
     } else {
 #ifndef ANDROID
-        fprintf(stderr, "lv3 (%2i): %s.%06lu: %s\n", v3h, stamp, tv.tv_usec, buf);
+        fprintf(stderr, "lv3 (%2i): %s.%06lu: %s\n", v3h, time, tv.tv_usec, buf);
 #else
-        __android_log_print(ANDROID_LOG_VERBOSE, "lv3", " %s.%06lu: %s", stamp, tv.tv_usec, buf);
+        __android_log_print(ANDROID_LOG_VERBOSE, "lv3", " %s.%06lu: %s", time, tv.tv_usec, buf);
 #endif
     }
 }
@@ -383,10 +363,10 @@ _v3_error(v3_handle v3h, const char *format, ...) {
 
     va_start(args, format);
     if (v3h == V3_HANDLE_NONE) {
-        vsnprintf(_error, sizeof(_error) - 1, format, args);
+        vsnprintf(_error, sizeof(_error), format, args);
         _v3_debug(v3h, V3_DBG_ERROR, _error);
     } else if ((v3c = _v3_handles[v3h])) {
-        vsnprintf(v3c->error, sizeof(v3c->error) - 1, format, args);
+        vsnprintf(v3c->error, sizeof(v3c->error), format, args);
         _v3_debug(v3h, V3_DBG_ERROR, v3c->error);
     }
     va_end(args);
@@ -404,7 +384,7 @@ v3_error(v3_handle v3h) {
 void
 _v3_enter(v3_handle v3h, const char *func) {
     _v3_connection *v3c;
-    char buf[256] = "";
+    char buf[256];
     uint16_t debug = 0;
 
     if (v3h == V3_HANDLE_NONE) {
@@ -413,20 +393,20 @@ _v3_enter(v3_handle v3h, const char *func) {
         debug = v3c->debug;
     }
     if ((debug & V3_DBG_STACK)) {
-        snprintf(buf, sizeof(buf) - 1, "---> %s()", func);
+        snprintf(buf, sizeof(buf), "---> %s()", func);
         _v3_debug(v3h, V3_DBG_STACK, buf);
     }
     if (v3h == V3_HANDLE_NONE) {
-        _stack++;
+        ++_stack;
     } else if (v3c) {
-        v3c->stack++;
+        ++v3c->stack;
     }
 }
 
 void
 _v3_leave(v3_handle v3h, const char *func) {
     _v3_connection *v3c;
-    char buf[256] = "";
+    char buf[256];
     uint16_t debug = 0;
 
     if (v3h == V3_HANDLE_NONE) {
@@ -441,7 +421,7 @@ _v3_leave(v3_handle v3h, const char *func) {
         debug = v3c->debug;
     }
     if ((debug & V3_DBG_STACK)) {
-        snprintf(buf, sizeof(buf) - 1, "<--- %s()", func);
+        snprintf(buf, sizeof(buf), "<--- %s()", func);
         _v3_debug(v3h, V3_DBG_STACK, buf);
     }
 }
@@ -458,7 +438,7 @@ _v3_packet(v3_handle v3h, const uint8_t *data, int len) {
     if (len <= 0) {
         return;
     }
-    for (ctr = 0; ctr <= 16; ctr++) {
+    for (ctr = 0; ctr <= 16; ++ctr) {
         if (!ctr) {
             memset(hex, 0x20, sizeof(hex));
             memset(chr, 0, sizeof(chr));
@@ -474,58 +454,54 @@ _v3_packet(v3_handle v3h, const uint8_t *data, int len) {
             snprintf(hex+(ctr*3), 4, "%02X ", *data);
             hex[ctr*3+3] = 0x20;
             chr[ctr] = (*data >= 0x20 && *data < 0x7f) ? *data : '.';
-            data++;
-            len--;
+            ++data;
+            --len;
         }
     }
 }
 
 int
 _v3_parse_server(const char *server, uint32_t *ip, uint16_t *port) {
-    const char func[] = "_v3_parse_server";
-
     char *srv;
     char *sep;
 
-    _v3_enter(V3_HANDLE_NONE, func);
+    _v3_enter(V3_HANDLE_NONE, __func__);
 
     if (!server || !*server) {
         _v3_error(V3_HANDLE_NONE, "no server address specified; expected: 'hostname:port'");
-        _v3_leave(V3_HANDLE_NONE, func);
+        _v3_leave(V3_HANDLE_NONE, __func__);
         return V3_FAILURE;
     }
     srv = strdup(server);
     if (!(sep = strchr(srv, ':'))) {
         _v3_error(V3_HANDLE_NONE, "invalid server address format '%s'; expected: 'hostname:port'", srv);
         free(srv);
-        _v3_leave(V3_HANDLE_NONE, func);
+        _v3_leave(V3_HANDLE_NONE, __func__);
         return V3_FAILURE;
     }
     *sep++ = 0;
     if (!(*ip = _v3_resolv(srv))) {
         free(srv);
-        _v3_leave(V3_HANDLE_NONE, func);
+        _v3_leave(V3_HANDLE_NONE, __func__);
         return V3_FAILURE;
     }
     *port = atoi(sep);
     free(srv);
     _v3_debug(V3_HANDLE_NONE, V3_DBG_INFO, "server port: %hu", *port);
 
-    _v3_leave(V3_HANDLE_NONE, func);
+    _v3_leave(V3_HANDLE_NONE, __func__);
     return V3_OK;
 }
 
 uint32_t
 _v3_resolv(const char *hostname) {
-    const char func[] = "_v3_resolv";
-
     struct in_addr ip;
 
-    _v3_enter(V3_HANDLE_NONE, func);
+    _v3_enter(V3_HANDLE_NONE, __func__);
 
     if (!hostname || !*hostname) {
         _v3_error(V3_HANDLE_NONE, "no hostname specified");
-        _v3_leave(V3_HANDLE_NONE, func);
+        _v3_leave(V3_HANDLE_NONE, __func__);
         return 0;
     }
     _v3_debug(V3_HANDLE_NONE, V3_DBG_INFO, "resolving hostname: '%s'", hostname);
@@ -558,25 +534,23 @@ _v3_resolv(const char *hostname) {
 #endif
         if (res || !hp || !hp->h_addr || hp->h_length < 1) {
             _v3_error(V3_HANDLE_NONE, "hostname lookup failed for: '%s'", hostname);
-            _v3_leave(V3_HANDLE_NONE, func);
+            _v3_leave(V3_HANDLE_NONE, __func__);
             return 0;
         }
         memcpy(&ip.s_addr, hp->h_addr, sizeof(ip.s_addr));
     }
     _v3_debug(V3_HANDLE_NONE, V3_DBG_INFO, "resolved to ipv4 address: '%s'", inet_ntoa(ip));
 
-    _v3_leave(V3_HANDLE_NONE, func);
+    _v3_leave(V3_HANDLE_NONE, __func__);
     return ip.s_addr;
 }
 
 void
 _v3_mutex_init(v3_handle v3h) {
-    const char func[] = "_v3_mutex_init";
-
     _v3_connection *v3c;
     pthread_mutexattr_t mta;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
 
@@ -597,16 +571,14 @@ _v3_mutex_init(v3_handle v3h) {
         pthread_cond_init(v3c->event_cond, (pthread_condattr_t *)&mta);
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 void
 _v3_mutex_destroy(v3_handle v3h) {
-    const char func[] = "_v3_mutex_destroy";
-
     _v3_connection *v3c;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
 
@@ -629,17 +601,15 @@ _v3_mutex_destroy(v3_handle v3h) {
         v3c->mutex = NULL;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 int
 _v3_mutex_lock(v3_handle v3h) {
-    const char func[] = "_v3_mutex_lock";
-
     _v3_connection *v3c;
     int ret = V3_FAILURE;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     if (v3h == V3_HANDLE_NONE) {
         ret = pthread_mutex_lock(&_v3_handles_mutex);
@@ -651,18 +621,16 @@ _v3_mutex_lock(v3_handle v3h) {
         ret = V3_OK;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_mutex_unlock(v3_handle v3h) {
-    const char func[] = "_v3_mutex_unlock";
-
     _v3_connection *v3c;
     int ret = V3_FAILURE;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     if (v3h == V3_HANDLE_NONE) {
         ret = pthread_mutex_unlock(&_v3_handles_mutex);
@@ -674,7 +642,7 @@ _v3_mutex_unlock(v3_handle v3h) {
         ret = V3_OK;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
@@ -685,7 +653,7 @@ _v3_strncpy(char *dest, const char *src, size_t n) {
 
     while (n--) {
         if ((*_dest++ = (*_src && *_src < 0x20) ? 0x20 : *_src)) {
-            _src++;
+            ++_src;
         }
     }
 

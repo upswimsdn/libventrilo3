@@ -6,7 +6,7 @@
  * $LastChangedBy$
  * $URL$
  *
- * Copyright 2009-2010 Eric Kilfoil
+ * Copyright 2009-2011 Eric Connell
  *
  * This file is part of libventrilo3.
  *
@@ -37,9 +37,8 @@
 v3_handle v3h;
 
 void
-ctrl_c(int signum) {
+interrupt(int signum) {
     (void)signum;
-
     if (!v3_logged_in(v3h)) {
         v3_login_cancel(v3h);
     } else {
@@ -49,12 +48,16 @@ ctrl_c(int signum) {
 
 void *
 connection(void *arg) {
-    (void)arg;
     v3_event ev;
 
-    while (v3_event_get(v3h, V3_BLOCK, &ev) == V3_OK) {
+    while (v3_logged_in(v3h) && v3_event_get(v3h, V3_BLOCK, &ev) == V3_OK) {
         fprintf(stderr, "event count: %i | got event type: %i\n", v3_event_count(v3h), ev.type);
         switch (ev.type) {
+          case V3_EVENT_LOGIN:
+            if (arg && *(int *)arg) {
+                v3_channel_change(v3h, *(int *)arg, "");
+            }
+            break;
           case V3_EVENT_USER_LIST:
           case V3_EVENT_USER_LOGIN:
             v3_user_mute(v3h, ev.user.id, true);
@@ -64,45 +67,54 @@ connection(void *arg) {
 
     pthread_detach(pthread_self());
     pthread_exit(NULL);
+    return NULL;
 }
 
 int
 main(int argc, char **argv) {
     pthread_t thread;
+    int channel;
 
     if (argc < 3) {
-        fprintf(stderr, "%s hostname:port username [password]\n", argv[0]);
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "%s hostname:port username [channel_id] [password]\n", argv[0]);
+        return 1;
     }
+    channel = (argc >= 4) ? atoi(argv[3]) : 0;
     v3_debug(V3_HANDLE_NONE, V3_DBG_ALL);
 
     if ((v3h = v3_init(argv[1], argv[2])) == V3_HANDLE_NONE) {
         fprintf(stderr, "v3_init() error: %s\n", v3_error(v3h));
-        return EXIT_FAILURE;
+        return 1;
     }
     v3_debug(v3h, V3_DBG_ALL);
-
-    if (argc >= 4) {
-        v3_password(v3h, argv[3]);
+    if (argc >= 5) {
+        v3_password(v3h, argv[4]);
     }
-    v3_luser_option(v3h, V3_USER_ACCEPT_PAGES, true);
-    v3_luser_option(v3h, V3_USER_ACCEPT_U2U, true);
+    v3_luser_option(v3h, V3_USER_ACCEPT_PAGES, false);
+    v3_luser_option(v3h, V3_USER_ACCEPT_U2U, false);
     v3_luser_option(v3h, V3_USER_ACCEPT_CHAT, false);
-    v3_luser_option(v3h, V3_USER_ALLOW_RECORD, true);
+    v3_luser_option(v3h, V3_USER_ALLOW_RECORD, false);
     v3_luser_text(v3h, "comment", "url", "integration", false);
-    signal(SIGINT, ctrl_c);
+
+    signal(SIGINT, interrupt);
 
     if (v3_login(v3h) != V3_OK) {
         fprintf(stderr, "v3_login() error: %s\n", v3_error(v3h));
-        return EXIT_FAILURE;
+        v3_destroy(v3h);
+        return 1;
     }
-    pthread_create(&thread, NULL, connection, NULL);
+    pthread_create(&thread, NULL, connection, &channel);
 
     if (v3_iterate(v3h, V3_BLOCK, 0) != V3_OK) {
         fprintf(stderr, "v3_iterate() error: %s\n", v3_error(v3h));
+        v3_destroy(v3h);
+        return 1;
     }
+
+    pthread_join(thread, NULL);
+
     v3_destroy(v3h);
 
-    return EXIT_SUCCESS;
+    return 0;
 }
 

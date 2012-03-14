@@ -6,7 +6,7 @@
  * $LastChangedBy$
  * $URL$
  *
- * Copyright 2009-2010 Eric Kilfoil
+ * Copyright 2009-2011 Eric Connell
  *
  * This file is part of libventrilo3.
  *
@@ -30,28 +30,24 @@
 
 int
 _v3_connected(v3_handle v3h) {
-    const char func[] = "_v3_connected";
-
     _v3_connection *v3c;
     int connected;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
     connected = (v3c->sd >= 0);
     _v3_debug(v3h, V3_DBG_SOCKET, "%sconnected with socket descriptor: %i", (!connected) ? "not " : "", v3c->sd);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return connected;
 }
 
 void
 _v3_close(v3_handle v3h) {
-    const char func[] = "_v3_close";
-
     _v3_connection *v3c;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
 
@@ -71,18 +67,16 @@ _v3_close(v3_handle v3h) {
     }
     v3c->logged_in = false;
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 int
 _v3_connect(v3_handle v3h, int tcp) {
-    const char func[] = "_v3_connect";
-
     _v3_connection *v3c;
     struct linger ling = { 1, 1 };
     struct sockaddr_in sa;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_close(v3h);
 
@@ -90,7 +84,7 @@ _v3_connect(v3_handle v3h, int tcp) {
 
     if ((v3c->sd = socket(AF_INET, (tcp) ? SOCK_STREAM : SOCK_DGRAM, (tcp) ? IPPROTO_TCP : IPPROTO_UDP)) < 0) {
         _v3_error(v3h, "failed to create %s socket: %s", (tcp) ? "tcp" : "udp", strerror(errno));
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return V3_FAILURE;
     }
     setsockopt(v3c->sd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling));
@@ -102,25 +96,23 @@ _v3_connect(v3_handle v3h, int tcp) {
         if (connect(v3c->sd, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
             _v3_error(v3h, "failed to connect: %s", strerror(errno));
             _v3_close(v3h);
-            _v3_leave(v3h, func);
+            _v3_leave(v3h, __func__);
             return V3_FAILURE;
         }
         _v3_debug(v3h, V3_DBG_STATUS, "tcp connected");
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return V3_OK;
 }
 
 void
 _v3_timestamp(v3_handle v3h, struct timeval *tv) {
-    const char func[] = "_v3_timestamp";
-
     _v3_connection *v3c;
     struct timeval now;
     int nsec;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
 
@@ -153,23 +145,21 @@ _v3_timestamp(v3_handle v3h, struct timeval *tv) {
         tv->tv_usec = v3c->timestamp.tv_usec - now.tv_usec;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 int
 _v3_send(v3_handle v3h, _v3_message *m) {
-    const char func[] = "_v3_send";
-
     _v3_connection *v3c;
     uint8_t buf[0xffff];
     uint8_t *data;
     uint16_t len;
     int ret = V3_OK;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     if (!_v3_connected(v3h)) {
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return V3_FAILURE;
     }
 
@@ -193,7 +183,7 @@ _v3_send(v3_handle v3h, _v3_message *m) {
         _v3_encrypt(v3h, v3c->client_key, data, len);
     }
     len += sizeof(len);
-    v3c->sent_pkt_ctr++;
+    ++v3c->sent_pkt_ctr;
     v3c->sent_byte_ctr += len;
     _v3_debug(v3h, V3_DBG_SOCKET, "sending %u bytes; session: %u bytes, %u packets", len, v3c->sent_byte_ctr, v3c->sent_pkt_ctr);
     if (send(v3c->sd, buf, len, 0) < 0) {
@@ -203,22 +193,21 @@ _v3_send(v3_handle v3h, _v3_message *m) {
 
     _v3_mutex_unlock(v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 void *
 _v3_recv(v3_handle v3h, int block) {
-    const char func[] = "_v3_recv";
-
     _v3_connection *v3c;
     _v3_message *m;
     fd_set rfds;
-    struct timeval tv, zero = { 0, 0 };
+    struct timeval tv;
+    struct timeval zero = { 0, 0 };
     int ret, ctr;
     uint16_t rem;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
 
@@ -251,7 +240,7 @@ _v3_recv(v3_handle v3h, int block) {
                 }
                 _v3_msg_free(v3h, m);
                 _v3_close(v3h);
-                _v3_leave(v3h, func);
+                _v3_leave(v3h, __func__);
                 return NULL;
             }
             if (!m->data) {
@@ -271,25 +260,23 @@ _v3_recv(v3_handle v3h, int block) {
             _v3_decrypt(v3h, v3c->server_key, m->data, m->len);
         }
         memcpy(&m->type, m->data, sizeof(m->type));
-        v3c->recv_pkt_ctr++;
+        ++v3c->recv_pkt_ctr;
         v3c->recv_byte_ctr += m->len;
         _v3_debug(v3h, V3_DBG_SOCKET, "received %i bytes; session: %u bytes, %u packets", ctr, v3c->recv_byte_ctr, v3c->recv_pkt_ctr);
         _v3_debug(v3h, V3_DBG_PACKET, V3_RECV_TCP);
         _v3_packet(v3h, m->data, m->len);
         m->len -= sizeof(m->type);
         memmove(m->data, m->data + sizeof(m->type), m->len);
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return m;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return NULL;
 }
 
 int
 v3_login(v3_handle v3h) {
-    const char func[] = "v3_login";
-
     _v3_connection *v3c;
     _v3_message *m = NULL;
     int ret = V3_FAILURE;
@@ -297,14 +284,14 @@ v3_login(v3_handle v3h) {
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_mutex_lock(v3h);
 
     if (_v3_connected(v3h)) {
         _v3_mutex_unlock(v3h);
         _v3_error(v3h, "already connected; try logout first");
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return V3_FAILURE;
     }
     _v3_data_destroy(v3h);
@@ -333,20 +320,18 @@ v3_login(v3_handle v3h) {
 
     _v3_mutex_unlock(v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 v3_login_cancel(v3_handle v3h) {
-    const char func[] = "v3_login_cancel";
-
     _v3_connection *v3c;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
 
@@ -355,21 +340,19 @@ v3_login_cancel(v3_handle v3h) {
         shutdown(v3c->sd, SHUT_WR);
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return V3_OK;
 }
 
 int
 v3_logout(v3_handle v3h) {
-    const char func[] = "v3_logout";
-
     _v3_connection *v3c;
     v3_event ev = { .type = V3_EVENT_LOGOUT };
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_mutex_lock(v3h);
 
@@ -383,14 +366,12 @@ v3_logout(v3_handle v3h) {
 
     _v3_mutex_unlock(v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return V3_OK;
 }
 
 int
 v3_iterate(v3_handle v3h, int block, uint32_t max) {
-    const char func[] = "v3_iterate";
-
     _v3_message *m;
     int ret = V3_OK;
     uint32_t ctr = 0;
@@ -398,7 +379,7 @@ v3_iterate(v3_handle v3h, int block, uint32_t max) {
     if (_v3_handle_valid(v3h) != V3_OK) {
         return V3_FAILURE;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     do {
         if ((m = _v3_recv(v3h, block))) {
@@ -408,7 +389,7 @@ v3_iterate(v3_handle v3h, int block, uint32_t max) {
     }
     while (ret == V3_OK && _v3_connected(v3h) && (!max || ++ctr < max) && (block || (!block && m)));
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 

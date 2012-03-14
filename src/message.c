@@ -6,7 +6,7 @@
  * $LastChangedBy$
  * $URL$
  *
- * Copyright 2009-2010 Eric Kilfoil
+ * Copyright 2009-2011 Eric Connell
  *
  * This file is part of libventrilo3.
  *
@@ -26,11 +26,9 @@
 
 void *
 _v3_msg_alloc(v3_handle v3h, uint32_t type, size_t len, void **contents) {
-    const char func[] = "_v3_msg_alloc";
-
     _v3_message *m;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_debug(v3h, V3_DBG_MEMORY, "allocating message: %u bytes", sizeof(_v3_message));
     m = malloc(sizeof(_v3_message));
@@ -48,18 +46,16 @@ _v3_msg_alloc(v3_handle v3h, uint32_t type, size_t len, void **contents) {
         *contents = m->data;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return m;
 }
 
 void
 _v3_msg_free(v3_handle v3h, _v3_message *m) {
-    const char func[] = "_v3_msg_free";
-
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     if (!m) {
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return;
     }
     if (m->data) {
@@ -69,16 +65,14 @@ _v3_msg_free(v3_handle v3h, _v3_message *m) {
     _v3_debug(v3h, V3_DBG_MEMORY, "releasing message");
     free(m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 const void *
 _v3_msg_string_get(v3_handle v3h, const void *src, char *dest, size_t n) {
-    const char func[] = "_v3_msg_string_get";
-
     uint16_t len;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     len = ntohs(*(uint16_t *)src);
     src += sizeof(len);
@@ -88,17 +82,15 @@ _v3_msg_string_get(v3_handle v3h, const void *src, char *dest, size_t n) {
     }
     src += len;
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return src;
 }
 
 size_t
 _v3_msg_string_put(v3_handle v3h, const char *src, size_t n, void **dest, size_t size) {
-    const char func[] = "_v3_msg_string_put";
-
     uint16_t len;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     len = strlen(src);
     len = (len > n) ? n : len;
@@ -108,60 +100,54 @@ _v3_msg_string_put(v3_handle v3h, const char *src, size_t n, void **dest, size_t
     memcpy(*dest + size, src, len);
     size += len;
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return size;
 }
 
 const void *
 _v3_msg_uint16_get(v3_handle v3h, const void *src, uint16_t *dest, size_t n, uint16_t *count) {
-    const char func[] = "_v3_msg_uint16_get";
-
     uint16_t len;
     size_t ctr;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     len = ntohs(*(uint16_t *)src);
     if (count) {
         *count = (len > n) ? n : len;
     }
     src += sizeof(len);
-    for (ctr = 0; ctr < ((len > n) ? n : len); ctr++) {
+    for (ctr = 0; ctr < ((len > n) ? n : len); ++ctr) {
         dest[ctr] = ntohs(*((uint16_t *)src + ctr));
     }
     src += len * sizeof(*dest);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return src;
 }
 
 size_t
 _v3_msg_uint16_put(v3_handle v3h, const uint16_t *src, uint16_t count, void **dest, size_t size) {
-    const char func[] = "_v3_msg_uint16_put";
-
     uint16_t ctr;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     *dest = realloc(*dest, size + sizeof(count) + sizeof(*src) * count);
     *(uint16_t *)(*dest + size) = htons(count);
     size += sizeof(count);
-    for (ctr = 0; ctr < count; ctr++) {
+    for (ctr = 0; ctr < count; ++ctr) {
         *(uint16_t *)(*dest + size) = htons(src[ctr]);
         size += sizeof(*src);
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return size;
 }
 
 const void *
 _v3_msg_channel_get(v3_handle v3h, const void *src, v3_channel *c) {
-    const char func[] = "_v3_msg_channel_get";
-
     int len;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     len = (void *)&c->_internal_ - (void *)c;
     memcpy(c, src, len);
@@ -170,17 +156,15 @@ _v3_msg_channel_get(v3_handle v3h, const void *src, v3_channel *c) {
     src = _v3_msg_string_get(v3h, src, c->phonetic, sizeof(c->phonetic) - 1);
     src = _v3_msg_string_get(v3h, src, c->comment, sizeof(c->comment) - 1);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return src;
 }
 
 size_t
 _v3_msg_channel_put(v3_handle v3h, const v3_channel *c, void **dest, size_t size, int skip) {
-    const char func[] = "_v3_msg_channel_put";
-
     int len;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     len = (void *)&c->_internal_ - (void *)c;
     *dest = realloc(*dest, size + len);
@@ -192,17 +176,15 @@ _v3_msg_channel_put(v3_handle v3h, const v3_channel *c, void **dest, size_t size
         size = _v3_msg_string_put(v3h, c->comment, sizeof(c->comment) - 1, dest, size);
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return size;
 }
 
 const void *
 _v3_msg_rank_get(v3_handle v3h, const void *src, v3_rank *r) {
-    const char func[] = "_v3_msg_rank_get";
-
     int len;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     len = (void *)&r->_internal_ - (void *)r;
     memcpy(r, src, len);
@@ -210,17 +192,15 @@ _v3_msg_rank_get(v3_handle v3h, const void *src, v3_rank *r) {
     src = _v3_msg_string_get(v3h, src, r->name, sizeof(r->name) - 1);
     src = _v3_msg_string_get(v3h, src, r->description, sizeof(r->description) - 1);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return src;
 }
 
 const void *
 _v3_msg_user_get(v3_handle v3h, const void *src, v3_user *u) {
-    const char func[] = "_v3_msg_user_get";
-
     int len;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     len = (void *)&u->_internal_ - (void *)u;
     memcpy(u, src, len);
@@ -231,17 +211,15 @@ _v3_msg_user_get(v3_handle v3h, const void *src, v3_user *u) {
     src = _v3_msg_string_get(v3h, src, u->integration, sizeof(u->integration) - 1);
     src = _v3_msg_string_get(v3h, src, u->url, sizeof(u->url) - 1);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return src;
 }
 
 size_t
 _v3_msg_user_put(v3_handle v3h, const v3_user *u, void **dest, size_t size) {
-    const char func[] = "_v3_msg_user_put";
-
     int len;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     len = (void *)&u->_internal_ - (void *)u;
     *dest = realloc(*dest, size + len);
@@ -253,25 +231,23 @@ _v3_msg_user_put(v3_handle v3h, const v3_user *u, void **dest, size_t size) {
     size = _v3_msg_string_put(v3h, u->integration, sizeof(u->integration) - 1, dest, size);
     size = _v3_msg_string_put(v3h, u->url, sizeof(u->url) - 1, dest, size);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return size;
 }
 
 int
 _v3_msg_handshake_put(v3_handle v3h) {
-    const char func[] = "_v3_msg_handshake_put";
-
     _v3_message *m;
     _v3_msg_handshake *mc;
     size_t ctr;
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     m = _v3_msg_alloc(v3h, V3_MSG_HANDSHAKE, sizeof(_v3_msg_handshake), (void **)&mc);
 
     strncpy(mc->protocol, V3_PROTO_VERSION, sizeof(mc->protocol) - 1);
-    for (ctr = 0; ctr < sizeof(mc->salt_1) - 1; ctr++) {
+    for (ctr = 0; ctr < sizeof(mc->salt_1) - 1; ++ctr) {
         mc->salt_1[ctr] = rand() % 93 + 33;
         mc->salt_2[ctr] = rand() % 93 + 33;
     }
@@ -280,19 +256,17 @@ _v3_msg_handshake_put(v3_handle v3h) {
 
     _v3_msg_free(v3h, m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_msg_move_put(v3_handle v3h, uint16_t id, uint16_t channel) {
-    const char func[] = "_v3_msg_move_put";
-
     _v3_message *m;
     _v3_msg_move *mc;
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     m = _v3_msg_alloc(v3h, V3_MSG_MOVE, sizeof(_v3_msg_move), (void **)&mc);
 
@@ -303,19 +277,17 @@ _v3_msg_move_put(v3_handle v3h, uint16_t id, uint16_t channel) {
 
     _v3_msg_free(v3h, m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_msg_chat_put(v3_handle v3h, uint16_t subtype, const char *message) {
-    const char func[] = "_v3_msg_chat_put";
-
     _v3_message *m;
     _v3_msg_chat *mc;
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     m = _v3_msg_alloc(v3h, V3_MSG_CHAT, sizeof(_v3_msg_chat), (void **)&mc);
 
@@ -330,19 +302,17 @@ _v3_msg_chat_put(v3_handle v3h, uint16_t subtype, const char *message) {
 
     _v3_msg_free(v3h, m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_msg_user_option_put(v3_handle v3h, uint16_t user, uint16_t subtype, uint32_t value) {
-    const char func[] = "_v3_msg_user_option_put";
-
     _v3_message *m;
     _v3_msg_user_option *mc;
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     m = _v3_msg_alloc(v3h, V3_MSG_USER_OPTION, sizeof(_v3_msg_user_option), (void **)&mc);
 
@@ -354,20 +324,18 @@ _v3_msg_user_option_put(v3_handle v3h, uint16_t user, uint16_t subtype, uint32_t
 
     _v3_msg_free(v3h, m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_msg_login_put(v3_handle v3h) {
-    const char func[] = "_v3_msg_login_put";
-
     _v3_connection *v3c;
     _v3_message *m;
     _v3_msg_login *mc;
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     m = _v3_msg_alloc(v3h, V3_MSG_LOGIN, sizeof(_v3_msg_login), (void **)&mc);
 
@@ -391,19 +359,17 @@ _v3_msg_login_put(v3_handle v3h) {
 
     _v3_msg_free(v3h, m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_msg_chan_list_put(v3_handle v3h, uint16_t subtype, uint16_t user, const char *password, const v3_channel *c) {
-    const char func[] = "_v3_msg_chan_list_put";
-
     _v3_message *m;
     _v3_msg_chan_list *mc;
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     m = _v3_msg_alloc(v3h, V3_MSG_CHAN_LIST, sizeof(_v3_msg_chan_list), (void **)&mc);
 
@@ -428,19 +394,17 @@ _v3_msg_chan_list_put(v3_handle v3h, uint16_t subtype, uint16_t user, const char
 
     _v3_msg_free(v3h, m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_msg_timestamp_put(v3_handle v3h) {
-    const char func[] = "_v3_msg_timestamp_put";
-
     _v3_message *m;
     _v3_msg_timestamp *mc;
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     m = _v3_msg_alloc(v3h, V3_MSG_TIMESTAMP, sizeof(_v3_msg_timestamp), (void **)&mc);
 
@@ -450,21 +414,19 @@ _v3_msg_timestamp_put(v3_handle v3h) {
 
     _v3_msg_free(v3h, m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_msg_audio_put(v3_handle v3h, uint16_t subtype, int16_t index, int16_t format, uint32_t pcmlen, const void *data, uint32_t datalen) {
-    const char func[] = "_v3_msg_audio_put";
-
     _v3_message *m;
     _v3_msg_audio *mc;
     uint16_t method[] = { V3_METHOD_CURRENT };
     uint16_t dest[] = { 0 };
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     m = _v3_msg_alloc(v3h, V3_MSG_AUDIO, sizeof(_v3_msg_audio), (void **)&mc);
 
@@ -493,19 +455,17 @@ _v3_msg_audio_put(v3_handle v3h, uint16_t subtype, int16_t index, int16_t format
 
     _v3_msg_free(v3h, m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_msg_phantom_put(v3_handle v3h, uint16_t subtype, uint16_t phantom, uint16_t channel) {
-    const char func[] = "_v3_msg_phantom_put";
-
     _v3_message *m;
     _v3_msg_phantom *mc;
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     m = _v3_msg_alloc(v3h, V3_MSG_PHANTOM, sizeof(_v3_msg_phantom), (void **)&mc);
 
@@ -523,19 +483,17 @@ _v3_msg_phantom_put(v3_handle v3h, uint16_t subtype, uint16_t phantom, uint16_t 
 
     _v3_msg_free(v3h, m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_msg_hash_table_put(v3_handle v3h, uint16_t subtype) {
-    const char func[] = "_v3_msg_hash_table_put";
-
     _v3_message *m;
     _v3_msg_hash_table *mc;
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     m = _v3_msg_alloc(v3h, V3_MSG_HASH_TABLE, sizeof(_v3_msg_hash_table), (void **)&mc);
 
@@ -565,19 +523,17 @@ _v3_msg_hash_table_put(v3_handle v3h, uint16_t subtype) {
 
     _v3_msg_free(v3h, m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_msg_user_list_put(v3_handle v3h, uint16_t subtype, const v3_user *u) {
-    const char func[] = "_v3_msg_user_list_put";
-
     _v3_message *m;
     _v3_msg_user_list *mc;
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     m = _v3_msg_alloc(v3h, V3_MSG_USER_LIST, sizeof(_v3_msg_user_list), (void **)&mc);
 
@@ -589,19 +545,17 @@ _v3_msg_user_list_put(v3_handle v3h, uint16_t subtype, const v3_user *u) {
 
     _v3_msg_free(v3h, m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_msg_user_page_put(v3_handle v3h, uint16_t to, uint16_t from) {
-    const char func[] = "_v3_msg_user_page_put";
-
     _v3_message *m;
     _v3_msg_user_page *mc;
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     m = _v3_msg_alloc(v3h, V3_MSG_USER_PAGE, sizeof(_v3_msg_user_page), (void **)&mc);
 
@@ -612,19 +566,17 @@ _v3_msg_user_page_put(v3_handle v3h, uint16_t to, uint16_t from) {
 
     _v3_msg_free(v3h, m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_msg_admin_put(v3_handle v3h, uint16_t subtype, uint16_t user, const void *data) {
-    const char func[] = "_v3_msg_admin_put";
-
     _v3_message *m;
     _v3_msg_admin *mc;
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     m = _v3_msg_alloc(v3h, V3_MSG_ADMIN, sizeof(_v3_msg_admin), (void **)&mc);
 
@@ -646,18 +598,16 @@ _v3_msg_admin_put(v3_handle v3h, uint16_t subtype, uint16_t user, const void *da
 
     _v3_msg_free(v3h, m);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
 _v3_msg_process(v3_handle v3h, _v3_message *m) {
-    const char func[] = "_v3_msg_process";
-
     _v3_connection *v3c;
     int ret = V3_OK;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
     _v3_debug(v3h, V3_DBG_MESSAGE, "processing message type 0x%02x (%u)", m->type, m->type);
@@ -676,8 +626,8 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                 ev.type = V3_EVENT_ADMIN_AUTH;
                 break;
               case V3_AUTH_KEYS:
-                v3c->client_key = calloc(1, sizeof(ventrilo_key_ctx));
-                v3c->server_key = calloc(1, sizeof(ventrilo_key_ctx));
+                v3c->client_key = calloc(1, sizeof(v3_key_ctx));
+                v3c->server_key = calloc(1, sizeof(v3_key_ctx));
                 if (_v3_read_keys(
                         v3h,
                         v3c->client_key,
@@ -697,7 +647,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
               case V3_AUTH_DISABLED:
                 break;
               default:
-                _v3_debug(v3h, V3_DBG_MESSAGE, "message type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
+                _v3_error(v3h, "message not implemented: type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
                 ret = V3_NOTIMPL;
                 break;
             }
@@ -749,7 +699,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
             _v3_key_scramble(v3h, v3c->server_key, v3c->handshake_key);
             if (!v3c->logged_in) {
                 ret = _v3_msg_hash_table_put(v3h, 0);
-                for (ctr = 0; ctr < sizeof(type) / sizeof(int); ctr++) {
+                for (ctr = 0; ctr < sizeof(type) / sizeof(*type); ++ctr) {
                     if (value[ctr]) {
                         ret = _v3_msg_user_option_put(v3h, v3c->luser.id, type[ctr], true);
                     }
@@ -779,7 +729,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
 
             _v3_mutex_lock(v3h);
 
-            for (ptr = m->data + sizeof(_v3_msg_rank_list), ctr = 0; ctr < mc->count; ctr++) {
+            for (ptr = m->data + sizeof(_v3_msg_rank_list), ctr = 0; ctr < mc->count; ++ctr) {
                 memset(&r, 0, sizeof(v3_rank));
                 ptr = _v3_msg_rank_get(v3h, ptr, &r);
                 _v3_debug(v3h, V3_DBG_MESSAGE, "rank: id: %u | level: %u | name: '%s' | description: '%s'",
@@ -816,7 +766,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     ev.rank.next = NULL;
                     break;
                   default:
-                    _v3_debug(v3h, V3_DBG_MESSAGE, "message type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
+                    _v3_error(v3h, "message not implemented: type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
                     ret = V3_NOTIMPL;
                     ctr = mc->count;
                     break;
@@ -916,7 +866,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     }
                     break;
                   default:
-                    _v3_debug(v3h, V3_DBG_MESSAGE, "message type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
+                    _v3_error(v3h, "message not implemented: type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
                     ret = V3_NOTIMPL;
                     break;
                 }
@@ -962,7 +912,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     _v3_event_push(v3h, &ev);
                     break;
                   default:
-                    _v3_debug(v3h, V3_DBG_MESSAGE, "message type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
+                    _v3_error(v3h, "message not implemented: type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
                     ret = V3_NOTIMPL;
                     break;
                 }
@@ -1014,7 +964,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                 ev.channel.next = NULL;
                 break;
               default:
-                _v3_debug(v3h, V3_DBG_MESSAGE, "message type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
+                _v3_error(v3h, "message not implemented: type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
                 ret = V3_NOTIMPL;
                 break;
             }
@@ -1035,7 +985,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
 
             _v3_mutex_lock(v3h);
 
-            for (ptr = m->data + sizeof(_v3_msg_acct_list), ctr = 0; ctr < mc->count; ctr++) {
+            for (ptr = m->data + sizeof(_v3_msg_acct_list), ctr = 0; ctr < mc->count; ++ctr) {
                 switch (mc->subtype) {
                   case V3_ACCT_OPEN:
                     if (!ev.type) {
@@ -1059,7 +1009,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     ctr = mc->count;
                     break;
                   default:
-                    _v3_debug(v3h, V3_DBG_MESSAGE, "message type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
+                    _v3_error(v3h, "message not implemented: type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
                     ret = V3_NOTIMPL;
                     ctr = mc->count;
                     break;
@@ -1106,7 +1056,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                 [0x1c] = NULL
             };
             v3_filter *filter;
-            const size_t count = sizeof(values) / sizeof(void *);
+            const size_t count = sizeof(values) / sizeof(*values);
             char value[0x100] = "";
             v3_event ev = { .type = 0 };
 
@@ -1146,7 +1096,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                             _v3_event_push(v3h, &ev);
                         }
                     }
-                    mc->property++;
+                    ++mc->property;
                 } else {
                     //TODO
                 }
@@ -1214,7 +1164,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                   case V3_AUDIO_TAKEN:
                     break;
                   default:
-                    _v3_debug(v3h, V3_DBG_MESSAGE, "message type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
+                    _v3_error(v3h, "message not implemented: type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
                     ret = V3_NOTIMPL;
                     break;
                 }
@@ -1279,7 +1229,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                 u.id = mc->phantom;
                 break;
               default:
-                _v3_debug(v3h, V3_DBG_MESSAGE, "message type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
+                _v3_error(v3h, "message not implemented: type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
                 ret = V3_NOTIMPL;
                 break;
             }
@@ -1338,7 +1288,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
 
             _v3_mutex_lock(v3h);
 
-            for (ptr = m->data + sizeof(_v3_msg_user_list), ctr = 0; ctr < mc->count; ctr++) {
+            for (ptr = m->data + sizeof(_v3_msg_user_list), ctr = 0; ctr < mc->count; ++ctr) {
                 memset(&u, 0, sizeof(v3_user));
                 ptr = _v3_msg_user_get(v3h, ptr, &u);
                 _v3_debug(v3h, V3_DBG_MESSAGE, "user: id: %u | channel: %u | flags: %u | rank: %u",
@@ -1391,7 +1341,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     ev.user.next = NULL;
                     break;
                   default:
-                    _v3_debug(v3h, V3_DBG_MESSAGE, "message type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
+                    _v3_error(v3h, "message not implemented: type 0x%02x unknown subtype 0x%02x", m->type, mc->subtype);
                     ret = V3_NOTIMPL;
                     ctr = mc->count;
                     break;
@@ -1437,7 +1387,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
 
             _v3_mutex_lock(v3h);
 
-            for (ptr = m->data + sizeof(_v3_msg_list_chan), ctr = 0; ctr < mc->count; ctr++) {
+            for (ptr = m->data + sizeof(_v3_msg_list_chan), ctr = 0; ctr < mc->count; ++ctr) {
                 memset(&c, 0, sizeof(v3_channel));
                 ptr = _v3_msg_channel_get(v3h, ptr, &c);
                 _v3_debug(v3h, V3_DBG_MESSAGE, "channel: id: %u | name: '%s' | phonetic: '%s' | comment: '%s'",
@@ -1468,7 +1418,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
         }
         break;
       default:
-        _v3_debug(v3h, V3_DBG_MESSAGE, "unknown message type 0x%02x", m->type);
+        _v3_error(v3h, "unknown message type 0x%02x", m->type);
         ret = V3_NOTIMPL;
         break;
     }
@@ -1487,7 +1437,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
         break;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 

@@ -6,7 +6,7 @@
  * $LastChangedBy$
  * $URL$
  *
- * Copyright 2009-2010 Eric Kilfoil
+ * Copyright 2009-2011 Eric Connell
  *
  * This file is part of libventrilo3.
  *
@@ -46,54 +46,50 @@
 
 void
 _v3_password(v3_handle v3h, const char *password, uint8_t *hash) {
-    const char func[] = "_v3_password";
-
     uint32_t crc, i, j, cnt, len;
     uint8_t tmp[4] = { 0 };
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     len = cnt = strlen(password);
-    for (i = 0; i < 32; i++, cnt++) {
+    for (i = 0; i < 32; ++i, ++cnt) {
         hash[i] = (i < len) ? password[i] : ((tmp[(cnt + 1) & 3] + hash[i-len]) - 0x3f) & 0x7f;
-        for (j = 0, crc = 0; j < i + 1; j++) {
+        for (j = 0, crc = 0; j < i + 1; ++j) {
             crc = _v3_hash_table[hash[j] ^ (crc & 0xff)] ^ (crc >> 8);
         }
         *(uint32_t *)tmp = htonl(crc);
         cnt += hash[i];
-        while (crc && !tmp[cnt & 3] && ++cnt);
+        while (crc && !tmp[cnt & 3]) {
+            ++cnt;
+        }
         hash[i] += tmp[cnt & 3];
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 uint32_t
 _v3_hash_table_scramble(v3_handle v3h, uint16_t type, uint32_t val) {
-    const char func[] = "_v3_hash_table_scramble";
-
     uint8_t in[16];
     uint32_t out, i;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     snprintf((char *)in, sizeof(in), (type == 0x05 || val) ? "%08x" : "%08X", (!val) ? (uint32_t)rand() : val);
-    for (out = 0, i = 0; i < 8; i++) {
+    for (out = 0, i = 0; i < 8; ++i) {
         out = (out >> 8) ^ _v3_hash_table[(uint8_t)(in[i] ^ out)];
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return out;
 }
 
 uint32_t
 _v3_hash_table_sum(v3_handle v3h, uint32_t type) {
-    const char func[] = "_v3_hash_table_sum";
-
     uint32_t seed, iter, out, i, j;
     uint8_t idx;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     switch (type) {
       case 0x00:
@@ -112,14 +108,14 @@ _v3_hash_table_sum(v3_handle v3h, uint32_t type) {
         iter = 32;
         break;
     }
-    for (out = 0, i = 0; i < iter; i++) {
-        for (j = 0; j < 4; j++) {
+    for (out = 0, i = 0; i < iter; ++i) {
+        for (j = 0; j < 4; ++j) {
             idx = ((seed >> (j * 8)) ^ out) & 0xff;
             out = (out >> 8) ^ _v3_hash_table[idx];
         }
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return _v3_hash_table_scramble(v3h, 0, out);
 }
 
@@ -139,17 +135,15 @@ _v3_hash_table_sum(v3_handle v3h, uint32_t type) {
 #define VENTRILO_KEY_INIT "\xAA\x55\x22\xCC\x69\x7C\x38\x91\x88\xF5\xE1"
 
 int
-_v3_read_keys(v3_handle v3h, ventrilo_key_ctx *client, ventrilo_key_ctx *server, uint8_t *data, uint32_t len) {
-    const char func[] = "_v3_read_keys";
-
-    ventrilo_key_ctx *tmp;
+_v3_read_keys(v3_handle v3h, v3_key_ctx *client, v3_key_ctx *server, uint8_t *data, uint32_t len) {
+    v3_key_ctx *tmp;
     uint32_t ctr;
     int del;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     del = -1;
-    for (ctr = 0; ctr < len && data[ctr]; ctr++) {
+    for (ctr = 0; ctr < len && data[ctr]; ++ctr) {
         if (del >= 0) {
             continue;
         }
@@ -163,7 +157,7 @@ _v3_read_keys(v3_handle v3h, ventrilo_key_ctx *client, ventrilo_key_ctx *server,
         }
     }
     if (del < 0) {
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return V3_FAILURE;
     }
     len = ctr;
@@ -171,7 +165,7 @@ _v3_read_keys(v3_handle v3h, ventrilo_key_ctx *client, ventrilo_key_ctx *server,
     server->size = len - (del + 1);
     client->size = del;
     if (client->size > 256 || server->size > 256) {
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return V3_FAILURE;
     }
     client->pos = 0;
@@ -179,77 +173,67 @@ _v3_read_keys(v3_handle v3h, ventrilo_key_ctx *client, ventrilo_key_ctx *server,
     memcpy(client->key, data, client->size);
     memcpy(server->key, data + del + 1, server->size);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return V3_OK;
 }
 
 void
 _v3_dec_init(v3_handle v3h, uint8_t *data, uint32_t len) {
-    const char func[] = "_v3_dec_init";
-
-    static const uint8_t first[] = VENTRILO_KEY_INIT;
     uint32_t ctr;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
-    for (ctr = 0; ctr < len; ctr++) {
-        data[ctr] -= first[ctr % 11] + (ctr % 27);
+    for (ctr = 0; ctr < len; ++ctr) {
+        data[ctr] -= VENTRILO_KEY_INIT[ctr % 11] + (ctr % 27);
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 void
 _v3_enc_init(v3_handle v3h, uint8_t *data, uint32_t len) {
-    const char func[] = "_v3_enc_init";
-
-    static const uint8_t first[] = VENTRILO_KEY_INIT;
     uint32_t ctr;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
-    for (ctr = 0; ctr < len; ctr++) {
-        data[ctr] += first[ctr % 11] + (ctr % 27);
+    for (ctr = 0; ctr < len; ++ctr) {
+        data[ctr] += VENTRILO_KEY_INIT[ctr % 11] + (ctr % 27);
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 void
-_v3_decrypt(v3_handle v3h, ventrilo_key_ctx *ctx, uint8_t *data, uint32_t len) {
-    const char func[] = "_v3_decrypt";
-
+_v3_decrypt(v3_handle v3h, v3_key_ctx *ctx, uint8_t *data, uint32_t len) {
     uint32_t ctr;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
-    for (ctr = 0; ctr < len; ctr++) {
+    for (ctr = 0; ctr < len; ++ctr) {
         data[ctr] -= ctx->key[ctx->pos] + (ctr % 45);
-        ctx->pos++;
+        ++ctx->pos;
         if (ctx->pos == ctx->size) {
             ctx->pos = 0;
         }
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 void
-_v3_encrypt(v3_handle v3h, ventrilo_key_ctx *ctx, uint8_t *data, uint32_t len) {
-    const char func[] = "_v3_encrypt";
-
+_v3_encrypt(v3_handle v3h, v3_key_ctx *ctx, uint8_t *data, uint32_t len) {
     uint32_t ctr;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
-    for (ctr = 0; ctr < len; ctr++) {
+    for (ctr = 0; ctr < len; ++ctr) {
         data[ctr] += ctx->key[ctx->pos] + (ctr % 45);
-        ctx->pos++;
+        ++ctx->pos;
         if (ctx->pos == ctx->size) {
             ctx->pos = 0;
         }
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 

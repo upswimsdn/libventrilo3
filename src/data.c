@@ -6,7 +6,7 @@
  * $LastChangedBy$
  * $URL$
  *
- * Copyright 2009-2010 Eric Kilfoil
+ * Copyright 2009-2011 Eric Connell
  *
  * This file is part of libventrilo3.
  *
@@ -26,8 +26,6 @@
 
 int
 _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
-    const char func[] = "_v3_data";
-
     _v3_connection *v3c;
     const char *tstr;
     void **list;
@@ -36,7 +34,7 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
     int ctr = 0;
     int ret = V3_OK;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_mutex_lock(v3h);
 
@@ -66,7 +64,7 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
       default:
         _v3_error(v3h, "unknown data type: %i", type);
         _v3_mutex_unlock(v3h);
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return V3_FAILURE;
     }
     switch (oper) {
@@ -81,8 +79,8 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
         while (ptr) {
             if (*(uint16_t *)ptr != *(uint16_t *)data) {
                 last = ptr;
-                memcpy(&ptr, ptr+(size-sizeof(void *)), sizeof(void *));
-                ctr++;
+                *(void **)(&ptr) = *(void **)(ptr+(size-sizeof(void *)));
+                ++ctr;
                 continue;
             }
             _v3_debug(v3h, V3_DBG_INFO, "updating %s list at item %i", tstr, ctr+1);
@@ -96,7 +94,7 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
         }
         if (!ptr) {
             ptr = calloc(1, size);
-            memcpy(last+(size-sizeof(void *)), &ptr, sizeof(void *));
+            *(void **)(last+(size-sizeof(void *))) = ptr;
             memcpy(ptr, data, size-sizeof(void *));
             _v3_debug(v3h, V3_DBG_INFO, "appended %s list at item %i", tstr, ctr);
         }
@@ -105,12 +103,12 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
       case V3_DATA_RETURN:
         _v3_debug(v3h, V3_DBG_INFO, "retrieving id %u from %s list", *(uint16_t *)data, tstr);
         if (!(ptr = *list)) {
-            _v3_error(v3h, "%s list not initialized", tstr);
+            _v3_debug(v3h, V3_DBG_INFO, "%s list not initialized", tstr);
             ret = V3_FAILURE;
             break;
         }
         while (ptr && *(uint16_t *)ptr != *(uint16_t *)data) {
-            memcpy(&ptr, ptr+(size-sizeof(void *)), sizeof(void *));
+            *(void **)(&ptr) = *(void **)(ptr+(size-sizeof(void *)));
         }
         if (!ptr) {
             _v3_error(v3h, "%s id %u not found", tstr, *(uint16_t *)data);
@@ -119,19 +117,19 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
         }
         memcpy(data, ptr, size-sizeof(void *));
         if (oper == V3_DATA_RETURN) {
-            memcpy(data+(size-sizeof(void *)), &ptr, sizeof(void *));
+            *(void **)(data+(size-sizeof(void *))) = ptr;
         }
         break;
       case V3_DATA_REMOVE:
         _v3_debug(v3h, V3_DBG_INFO, "releasing id %u from %s list", *(uint16_t *)data, tstr);
         if (!(ptr = *list)) {
-            _v3_error(v3h, "%s list not initialized", tstr);
+            _v3_debug(v3h, V3_DBG_INFO, "%s list not initialized", tstr);
             ret = V3_FAILURE;
             break;
         }
         while (ptr) {
             if (*(uint16_t *)ptr == *(uint16_t *)data) {
-                memcpy((!last) ? list : last+(size-sizeof(void *)), ptr+(size-sizeof(void *)), sizeof(void *));
+                *(void **)((!last) ? list : last+(size-sizeof(void *))) = *(void **)(ptr+(size-sizeof(void *)));
                 if (type == V3_DATA_TYPE_USER) {
                     _v3_coder_destroy(v3h, &((v3_user *)ptr)->decoder);
                 }
@@ -140,7 +138,7 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
                 break;
             }
             last = ptr;
-            memcpy(&ptr, ptr+(size-sizeof(void *)), sizeof(void *));
+            *(void **)(&ptr) = *(void **)(ptr+(size-sizeof(void *)));
         }
         if (!ptr) {
             _v3_debug(v3h, V3_DBG_INFO, "%s id %u not found", tstr, *(uint16_t *)data);
@@ -149,12 +147,12 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
       case V3_DATA_CLEAR:
         _v3_debug(v3h, V3_DBG_INFO, "clearing %s list", tstr);
         if (!*list) {
-            _v3_error(v3h, "%s list not initialized", tstr);
+            _v3_debug(v3h, V3_DBG_INFO, "%s list not initialized", tstr);
             ret = V3_FAILURE;
             break;
         }
         while (*list) {
-            memcpy(&ptr, *list+(size-sizeof(void *)), sizeof(void *));
+            *(void **)(&ptr) = *(void **)(*list+(size-sizeof(void *)));
             if (type == V3_DATA_TYPE_USER) {
                 _v3_coder_destroy(v3h, &((v3_user *)*list)->decoder);
             }
@@ -171,7 +169,7 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
 
     _v3_mutex_unlock(v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
@@ -205,8 +203,8 @@ _v3_data_count(v3_handle v3h, int type) {
         list = NULL;
         break;
     }
-    for (ctr = 0; list; ctr++) {
-        memcpy(&list, list+(size-sizeof(void *)), sizeof(void *));
+    for (ctr = 0; list; ++ctr) {
+        *(void **)(&list) = *(void **)(list+(size-sizeof(void *)));
     }
 
     pthread_mutex_unlock(v3c->mutex);
@@ -216,27 +214,23 @@ _v3_data_count(v3_handle v3h, int type) {
 
 void
 _v3_data_destroy(v3_handle v3h) {
-    const char func[] = "_v3_data_destroy";
-
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_data(v3h, V3_DATA_CLEAR, V3_DATA_TYPE_CHANNEL, NULL, 0);
     _v3_data(v3h, V3_DATA_CLEAR, V3_DATA_TYPE_RANK, NULL, 0);
     _v3_data(v3h, V3_DATA_CLEAR, V3_DATA_TYPE_USER, NULL, 0);
     _v3_data(v3h, V3_DATA_CLEAR, V3_DATA_TYPE_ACCOUNT, NULL, 0);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 void
 _v3_event_push(v3_handle v3h, v3_event *ev) {
-    const char func[] = "_v3_event_push";
-
     _v3_connection *v3c;
     v3_event *last;
     int ctr;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
 
@@ -259,7 +253,7 @@ _v3_event_push(v3_handle v3h, v3_event *ev) {
 
     pthread_mutex_unlock(v3c->event_mutex);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 int
@@ -291,30 +285,30 @@ _v3_event_pop(v3_handle v3h, int block, v3_event *ev) {
 
 void
 _v3_event_clear(v3_handle v3h) {
-    const char func[] = "_v3_event_clear";
-
     _v3_connection *v3c;
     v3_event *ev, *next;
     int ctr = 0;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
 
     pthread_mutex_lock(v3c->event_mutex);
 
     ev = v3c->eventq;
+    v3c->eventq = NULL;
 
-    while (ev && ++ctr) {
+    while (ev) {
         next = ev->next;
         free(ev);
         ev = next;
+        ++ctr;
     }
     _v3_debug(v3h, V3_DBG_EVENT, "released %i events", ctr);
 
     pthread_mutex_unlock(v3c->event_mutex);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 int
@@ -331,7 +325,7 @@ v3_event_count(v3_handle v3h) {
 
     pthread_mutex_lock(v3c->event_mutex);
 
-    for (ctr = 0, ev = v3c->eventq; ev; ctr++, ev = ev->next);
+    for (ctr = 0, ev = v3c->eventq; ev; ++ctr, ev = ev->next);
 
     pthread_mutex_unlock(v3c->event_mutex);
 
@@ -349,16 +343,14 @@ v3_event_get(v3_handle v3h, int block, v3_event *ev) {
 
 void
 v3_event_clear(v3_handle v3h) {
-    const char func[] = "v3_event_clear";
-
     if (_v3_handle_valid(v3h) != V3_OK) {
         return;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_event_clear(v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 int
@@ -446,8 +438,6 @@ v3_lacct(v3_handle v3h, v3_account *a) {
 
 int
 v3_channel_admin(v3_handle v3h, uint16_t id) {
-    const char func[] = "v3_channel_admin";
-
     _v3_connection *v3c;
     uint16_t ctr;
     int ret = false;
@@ -455,13 +445,13 @@ v3_channel_admin(v3_handle v3h, uint16_t id) {
     if (_v3_handle_valid(v3h) != V3_OK) {
         return 0;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_mutex_lock(v3h);
 
     v3c = _v3_handles[v3h];
 
-    for (ctr = 0; id && ctr < v3c->lacct.chan_admin_count; ctr++) {
+    for (ctr = 0; id && ctr < v3c->lacct.chan_admin_count; ++ctr) {
         if (v3c->lacct.chan_admin[ctr] == id) {
             ret = true;
             break;
@@ -470,7 +460,7 @@ v3_channel_admin(v3_handle v3h, uint16_t id) {
 
     _v3_mutex_unlock(v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
@@ -490,14 +480,12 @@ _v3_channel_password(v3_handle v3h, uint16_t id) {
 
 uint16_t
 v3_channel_password(v3_handle v3h, uint16_t id) {
-    const char func[] = "v3_channel_password";
-
     uint16_t ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return 0;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_mutex_lock(v3h);
 
@@ -505,14 +493,12 @@ v3_channel_password(v3_handle v3h, uint16_t id) {
 
     _v3_mutex_unlock(v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 char *
 v3_channel_path(v3_handle v3h, uint16_t id) {
-    const char func[] = "v3_channel_path";
-
     _v3_connection *v3c;
     v3_channel *c;
     const char sep = '/';
@@ -523,7 +509,7 @@ v3_channel_path(v3_handle v3h, uint16_t id) {
     if (_v3_handle_valid(v3h) != V3_OK) {
         return NULL;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_mutex_lock(v3h);
 
@@ -554,14 +540,12 @@ v3_channel_path(v3_handle v3h, uint16_t id) {
 
     _v3_mutex_unlock(v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return path;
 }
 
 uint16_t
 v3_channel_id(v3_handle v3h, const char *path) {
-    const char func[] = "v3_channel_id";
-
     _v3_connection *v3c;
     v3_channel *c;
     const char sep = '/';
@@ -576,7 +560,7 @@ v3_channel_id(v3_handle v3h, const char *path) {
     if (_v3_handle_valid(v3h) != V3_OK) {
         return 0;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_mutex_lock(v3h);
 
@@ -584,7 +568,7 @@ v3_channel_id(v3_handle v3h, const char *path) {
 
     if (!path || !*path) {
         _v3_mutex_unlock(v3h);
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return 0;
     }
     for (;;) {
@@ -593,7 +577,7 @@ v3_channel_id(v3_handle v3h, const char *path) {
             if (!len) {
                 free(names);
                 _v3_mutex_unlock(v3h);
-                _v3_leave(v3h, func);
+                _v3_leave(v3h, __func__);
                 return 0;
             }
             names[depth-1] = p - len;
@@ -602,11 +586,11 @@ v3_channel_id(v3_handle v3h, const char *path) {
                 break;
             }
         } else {
-            len++;
+            ++len;
         }
-        p++;
+        ++p;
     }
-    for (ctr = 0; ctr < depth; ctr++) {
+    for (ctr = 0; ctr < depth; ++ctr) {
         memset(name, 0, sizeof(name));
         len = strlen(names[ctr]) - ((ctr + 1 < depth) ? strlen(names[ctr + 1]) + 1 : 0);
         if (len > sizeof(name)) {
@@ -629,14 +613,12 @@ v3_channel_id(v3_handle v3h, const char *path) {
 
     _v3_mutex_unlock(v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return id;
 }
 
 int
 v3_channel_sort(v3_handle v3h, uint16_t left, uint16_t right) {
-    const char func[] = "v3_channel_sort";
-
     _v3_connection *v3c;
     v3_channel *c;
     int sort = 0, lpos = -1, rpos = -1;
@@ -645,13 +627,13 @@ v3_channel_sort(v3_handle v3h, uint16_t left, uint16_t right) {
     if (_v3_handle_valid(v3h) != V3_OK) {
         return 0;
     }
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     _v3_mutex_lock(v3h);
 
     v3c = _v3_handles[v3h];
 
-    for (c = v3c->channels, ctr = 0; c; c = c->next, ctr++) {
+    for (c = v3c->channels, ctr = 0; c; c = c->next, ++ctr) {
         if (c->id == left) {
             lpos = ctr;
         }
@@ -665,7 +647,7 @@ v3_channel_sort(v3_handle v3h, uint16_t left, uint16_t right) {
 
     _v3_mutex_unlock(v3h);
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return sort;
 }
 

@@ -6,7 +6,7 @@
  * $LastChangedBy$
  * $URL$
  *
- * Copyright 2009-2010 Eric Kilfoil
+ * Copyright 2009-2011 Eric Connell
  *
  * This file is part of libventrilo3.
  *
@@ -52,7 +52,7 @@ getbe(uint8_t *data, uint32_t *ret, uint32_t bits) {
     uint32_t i, bytes, num;
 
     bytes = bits >> 3;
-    for (num = i = 0; i < bytes; i++) {
+    for (num = i = 0; i < bytes; ++i) {
         num |= (data[i] << ((bytes - 1 - i) << 3));
     }
     if (!ret) {
@@ -68,7 +68,7 @@ putbe(uint8_t *data, uint32_t num, uint32_t bits) {
     uint32_t i, bytes;
 
     bytes = bits >> 3;
-    for (i = 0; i < bytes; i++) {
+    for (i = 0; i < bytes; ++i) {
         data[i] = (num >> ((bytes - 1 - i) << 3)) & 0xff;
     }
 
@@ -77,17 +77,15 @@ putbe(uint8_t *data, uint32_t num, uint32_t bits) {
 
 int
 _v3_handshake(v3_handle v3h) {
-    const char func[] = "_v3_handshake";
-
     _v3_connection *v3c;
     int len, i;
     uint8_t sbuf[0x200], rbuf[0x200];
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     v3c = _v3_handles[v3h];
     if (_v3_connect(v3h, false) != V3_OK) {
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return V3_FAILURE;
     }
     memset(rbuf, 0, sizeof(rbuf));
@@ -99,7 +97,7 @@ _v3_handshake(v3_handle v3h) {
     if ((len = _v3_udp_recv(v3h, v3c->sd, rbuf, sizeof(rbuf), NULL, NULL)) <= 0) {
         _v3_error(v3h, "udp receive failed: %s", (!len) ? "timed out" : strerror(errno));
         _v3_close(v3h);
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return V3_FAILURE;
     }
     if (!strncmp((char *)rbuf+56, "DDDDDDDDDDDDDDDD", 16)) {
@@ -107,18 +105,18 @@ _v3_handshake(v3_handle v3h) {
         v3c->handshake_idx = 1;
         memset(v3c->handshake_key, 0x44, sizeof(v3c->handshake_key));
         memset(v3c->handshake, 0x44, sizeof(v3c->handshake));
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return V3_OK;
     }
-    for (i = 0; ventrilo3_auth[i].host; i++) {
+    for (i = 0; v3_auth[i].host; ++i) {
         len = _v3_udp_header(v3h, 5, sbuf, rbuf);
-        _v3_udp_send(v3h, v3c->sd, ventrilo3_auth[i].vnum, inet_addr(ventrilo3_auth[i].host), ventrilo3_auth[i].port, sbuf, len);
+        _v3_udp_send(v3h, v3c->sd, v3_auth[i].vnum, inet_addr(v3_auth[i].host), v3_auth[i].port, sbuf, len);
     }
     for (;;) {
-        if ((len = _v3_udp_recv(v3h, v3c->sd, rbuf, sizeof(rbuf), ventrilo3_auth, &v3c->handshake_idx)) <= 0) {
+        if ((len = _v3_udp_recv(v3h, v3c->sd, rbuf, sizeof(rbuf), v3_auth, &v3c->handshake_idx)) <= 0) {
             _v3_error(v3h, "udp receive failed: %s", (!len) ? "timed out" : strerror(errno));
             _v3_close(v3h);
-            _v3_leave(v3h, func);
+            _v3_leave(v3h, __func__);
             return V3_FAILURE;
         }
         if (len >= 92 + 16) {
@@ -129,18 +127,16 @@ _v3_handshake(v3_handle v3h) {
     memcpy(v3c->handshake_key, rbuf+28, sizeof(v3c->handshake_key));
     memcpy(v3c->handshake, rbuf+92, sizeof(v3c->handshake));
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return V3_OK;
 }
 
 void
-_v3_key_scramble(v3_handle v3h, ventrilo_key_ctx *ctx, uint8_t *v3key) {
-    const char func[] = "_v3_key_scramble";
-
+_v3_key_scramble(v3_handle v3h, v3_key_ctx *ctx, uint8_t *v3key) {
     uint32_t i, keylen;
     uint8_t *key;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     key = ctx->key;
     if (ctx->size < 64) {
@@ -148,7 +144,7 @@ _v3_key_scramble(v3_handle v3h, ventrilo_key_ctx *ctx, uint8_t *v3key) {
         ctx->size = 64;
     }
     keylen = ctx->size;
-    for (i = 0; i < keylen; i++) {
+    for (i = 0; i < keylen; ++i) {
         if (i < 64) {
             key[i] += v3key[i];
         } else {
@@ -160,16 +156,14 @@ _v3_key_scramble(v3_handle v3h, ventrilo_key_ctx *ctx, uint8_t *v3key) {
     }
     ctx->pos = 0;
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
 }
 
 uint16_t
 _v3_udp_header(v3_handle v3h, uint32_t type, uint8_t *buf, uint8_t *pck) {
-    const char func[] = "_v3_udp_header";
-
     uint16_t c;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     memset(buf, 0, 0x200);
     switch (type - 1) {
@@ -211,21 +205,19 @@ _v3_udp_header(v3_handle v3h, uint32_t type, uint8_t *buf, uint8_t *pck) {
     memcpy(buf+100, pck+168, 32); // version
     buf[131] = 0;
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return c;
 }
 
 int
 _v3_udp_send(v3_handle v3h, int sd, uint32_t vnum, uint32_t ip, uint16_t port, uint8_t *data, uint32_t len) {
-    const char func[] = "_v3_udp_send";
-
     _v3_connection *v3c;
     struct sockaddr_in sa;
     uint32_t i, k;
     uint8_t tmp[4];
     int ret;
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     if (vnum != (uint32_t)-1) {
         tmp[0] = ip;
@@ -233,7 +225,7 @@ _v3_udp_send(v3_handle v3h, int sd, uint32_t vnum, uint32_t ip, uint16_t port, u
         tmp[2] = ip >> 16;
         tmp[3] = ip >> 24;
         k = (tmp[0] & 0x0f) * vnum;
-        for (i = 16; i < len; i++, k++) {
+        for (i = 16; i < len; ++i, ++k) {
             data[i] += tmp[k & 3];
         }
     }
@@ -245,18 +237,16 @@ _v3_udp_send(v3_handle v3h, int sd, uint32_t vnum, uint32_t ip, uint16_t port, u
     _v3_packet(v3h, data, len);
     if ((ret = sendto(sd, data, len, 0, (struct sockaddr *)&sa, sizeof(sa))) > 0) {
         v3c = _v3_handles[v3h];
-        v3c->sent_pkt_ctr++;
+        ++v3c->sent_pkt_ctr;
         v3c->sent_byte_ctr += ret;
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return ret;
 }
 
 int
-_v3_udp_recv(v3_handle v3h, int sd, uint8_t *data, uint32_t maxsz, const ventrilo3_auth_t *vauth, uint16_t *handshake_idx) {
-    const char func[] = "_v3_udp_recv";
-
+_v3_udp_recv(v3_handle v3h, int sd, uint8_t *data, uint32_t maxsz, const v3_auth_t *vauth, uint16_t *handshake_idx) {
     _v3_connection *v3c;
     struct timeval tout;
     fd_set rfds;
@@ -267,7 +257,7 @@ _v3_udp_recv(v3_handle v3h, int sd, uint8_t *data, uint32_t maxsz, const ventril
     uint32_t ip;
     uint8_t tmp[4];
 
-    _v3_enter(v3h, func);
+    _v3_enter(v3h, __func__);
 
     tout.tv_sec = 2;
     tout.tv_usec = 0;
@@ -275,27 +265,27 @@ _v3_udp_recv(v3_handle v3h, int sd, uint8_t *data, uint32_t maxsz, const ventril
     FD_SET(sd, &rfds);
     _v3_debug(v3h, V3_DBG_SOCKET, "waiting for data...");
     if (select(sd+1, &rfds, NULL, NULL, &tout) <= 0) {
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return 0;
     }
     sasz = sizeof(sa);
     if ((len = recvfrom(sd, data, maxsz, 0, (struct sockaddr *)&sa, &sasz)) < 0) {
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return len;
     }
     if (len > 0) {
         v3c = _v3_handles[v3h];
-        v3c->recv_pkt_ctr++;
+        ++v3c->recv_pkt_ctr;
         v3c->recv_byte_ctr += len;
     }
     _v3_debug(v3h, V3_DBG_SOCKET, "received udp packet: '%s:%hu'", inet_ntoa(sa.sin_addr), ntohs(sa.sin_port));
     _v3_debug(v3h, V3_DBG_PACKET, V3_RECV_UDP);
     _v3_packet(v3h, data, len);
     if (!vauth) {
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return len;
     }
-    for (i = 0; vauth[i].host; i++) {
+    for (i = 0; vauth[i].host; ++i) {
         ip = inet_addr(vauth[i].host);
         if (ip == sa.sin_addr.s_addr) {
             vnum = vauth[i].vnum;
@@ -303,7 +293,7 @@ _v3_udp_recv(v3_handle v3h, int sd, uint8_t *data, uint32_t maxsz, const ventril
         }
     }
     if (!vauth[i].host) {
-        _v3_leave(v3h, func);
+        _v3_leave(v3h, __func__);
         return 0;
     }
     *handshake_idx = i;
@@ -313,12 +303,12 @@ _v3_udp_recv(v3_handle v3h, int sd, uint8_t *data, uint32_t maxsz, const ventril
         tmp[2] = ip >> 16;
         tmp[3] = ip >> 24;
         k = (tmp[0] & 0x0f) * vnum;
-        for (i = 16; i < len; i++, k++) {
+        for (i = 16; i < len; ++i, ++k) {
             data[i] -= tmp[k & 3];
         }
     }
 
-    _v3_leave(v3h, func);
+    _v3_leave(v3h, __func__);
     return len;
 }
 
