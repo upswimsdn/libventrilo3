@@ -30,8 +30,9 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
     const char *tstr;
     void **list;
     size_t size;
-    void *ptr, *last = NULL;
-    int ctr = 0;
+    void *ptr;
+    void *last;
+    int ctr;
     int ret = V3_OK;
 
     _v3_enter(v3h, __func__);
@@ -76,14 +77,11 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
             _v3_debug(v3h, V3_DBG_INFO, "initialized %s list", tstr);
             break;
         }
-        while (ptr) {
+        for (last = NULL, ctr = 1; ptr; last = ptr, *(void **)(&ptr) = *(void **)(ptr+(size-sizeof(void *))), ++ctr) {
             if (*(uint16_t *)ptr != *(uint16_t *)data) {
-                last = ptr;
-                *(void **)(&ptr) = *(void **)(ptr+(size-sizeof(void *)));
-                ++ctr;
                 continue;
             }
-            _v3_debug(v3h, V3_DBG_INFO, "updating %s list at item %i", tstr, ctr+1);
+            _v3_debug(v3h, V3_DBG_INFO, "updating %s list at item %i", tstr, ctr);
             if (type == V3_DATA_TYPE_USER) {
                 v3_user *src = data, *dest = ptr;
                 strncpy(src->name, dest->name, sizeof(src->name) - 1);
@@ -104,7 +102,6 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
         _v3_debug(v3h, V3_DBG_INFO, "retrieving id %u from %s list", *(uint16_t *)data, tstr);
         if (!(ptr = *list)) {
             _v3_debug(v3h, V3_DBG_INFO, "%s list not initialized", tstr);
-            ret = V3_FAILURE;
             break;
         }
         while (ptr && *(uint16_t *)ptr != *(uint16_t *)data) {
@@ -124,21 +121,19 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
         _v3_debug(v3h, V3_DBG_INFO, "releasing id %u from %s list", *(uint16_t *)data, tstr);
         if (!(ptr = *list)) {
             _v3_debug(v3h, V3_DBG_INFO, "%s list not initialized", tstr);
-            ret = V3_FAILURE;
             break;
         }
-        while (ptr) {
-            if (*(uint16_t *)ptr == *(uint16_t *)data) {
-                *(void **)((!last) ? list : last+(size-sizeof(void *))) = *(void **)(ptr+(size-sizeof(void *)));
-                if (type == V3_DATA_TYPE_USER) {
-                    _v3_coder_destroy(v3h, &((v3_user *)ptr)->decoder);
-                }
-                free(ptr);
-                _v3_debug(v3h, V3_DBG_MEMORY, "released %s id %u", tstr, *(uint16_t *)data);
-                break;
+        for (last = NULL; ptr; last = ptr, *(void **)(&ptr) = *(void **)(ptr+(size-sizeof(void *)))) {
+            if (*(uint16_t *)ptr != *(uint16_t *)data) {
+                continue;
             }
-            last = ptr;
-            *(void **)(&ptr) = *(void **)(ptr+(size-sizeof(void *)));
+            *(void **)((!last) ? list : last+(size-sizeof(void *))) = *(void **)(ptr+(size-sizeof(void *)));
+            if (type == V3_DATA_TYPE_USER) {
+                _v3_coder_destroy(v3h, &((v3_user *)ptr)->decoder);
+            }
+            free(ptr);
+            _v3_debug(v3h, V3_DBG_MEMORY, "released %s id %u", tstr, *(uint16_t *)data);
+            break;
         }
         if (!ptr) {
             _v3_debug(v3h, V3_DBG_INFO, "%s id %u not found", tstr, *(uint16_t *)data);
@@ -148,16 +143,15 @@ _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
         _v3_debug(v3h, V3_DBG_INFO, "clearing %s list", tstr);
         if (!*list) {
             _v3_debug(v3h, V3_DBG_INFO, "%s list not initialized", tstr);
-            ret = V3_FAILURE;
             break;
         }
-        while (*list) {
+        for (ctr = 1; *list; ++ctr) {
             *(void **)(&ptr) = *(void **)(*list+(size-sizeof(void *)));
             if (type == V3_DATA_TYPE_USER) {
                 _v3_coder_destroy(v3h, &((v3_user *)*list)->decoder);
             }
             free(*list);
-            _v3_debug(v3h, V3_DBG_MEMORY, "released %s item %i", tstr, ++ctr);
+            _v3_debug(v3h, V3_DBG_MEMORY, "released %s item %i", tstr, ctr);
             *list = ptr;
         }
         break;
@@ -203,9 +197,7 @@ _v3_data_count(v3_handle v3h, int type) {
         list = NULL;
         break;
     }
-    for (ctr = 0; list; ++ctr) {
-        *(void **)(&list) = *(void **)(list+(size-sizeof(void *)));
-    }
+    for (ctr = 0; list; ++ctr, *(void **)(&list) = *(void **)(list+(size-sizeof(void *))));
 
     pthread_mutex_unlock(v3c->mutex);
 
@@ -240,14 +232,10 @@ _v3_event_push(v3_handle v3h, v3_event *ev) {
     memcpy(last, ev, sizeof(v3_event) - sizeof(last->next));
     ev = last;
 
-    for (last = v3c->eventq, ctr = 0; last && ++ctr && last->next; last = last->next);
+    for (last = v3c->eventq, ctr = 1; last && ++ctr && last->next; last = last->next);
 
-    if (!v3c->eventq) {
-        v3c->eventq = ev;
-    } else {
-        last->next = ev;
-    }
-    _v3_debug(v3h, V3_DBG_EVENT, "%i events in queue", ++ctr);
+    *(v3_event **)((!v3c->eventq) ? &v3c->eventq : &last->next) = ev;
+    _v3_debug(v3h, V3_DBG_EVENT, "%i events in queue", ctr);
 
     pthread_cond_signal(v3c->event_cond);
 
@@ -287,7 +275,7 @@ void
 _v3_event_clear(v3_handle v3h) {
     _v3_connection *v3c;
     v3_event *ev, *next;
-    int ctr = 0;
+    int ctr;
 
     _v3_enter(v3h, __func__);
 
@@ -298,12 +286,8 @@ _v3_event_clear(v3_handle v3h) {
     ev = v3c->eventq;
     v3c->eventq = NULL;
 
-    while (ev) {
-        next = ev->next;
-        free(ev);
-        ev = next;
-        ++ctr;
-    }
+    for (ctr = 0; ev; next = ev->next, free(ev), ev = next, ++ctr);
+
     _v3_debug(v3h, V3_DBG_EVENT, "released %i events", ctr);
 
     pthread_mutex_unlock(v3c->event_mutex);
@@ -440,7 +424,7 @@ int
 v3_channel_admin(v3_handle v3h, uint16_t id) {
     _v3_connection *v3c;
     uint16_t ctr;
-    int ret = false;
+    int ret;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return 0;
@@ -451,7 +435,7 @@ v3_channel_admin(v3_handle v3h, uint16_t id) {
 
     v3c = _v3_handles[v3h];
 
-    for (ctr = 0; id && ctr < v3c->lacct.chan_admin_count; ++ctr) {
+    for (ret = false, ctr = 0; id && ctr < v3c->lacct.chan_admin_count; ++ctr) {
         if (v3c->lacct.chan_admin[ctr] == id) {
             ret = true;
             break;
@@ -501,10 +485,11 @@ char *
 v3_channel_path(v3_handle v3h, uint16_t id) {
     _v3_connection *v3c;
     v3_channel *c;
-    const char sep = '/';
-    uint16_t parent = 0;
-    char *path = NULL, *prepend;
-    int chanlen, pathlen;
+    uint16_t parent;
+    char *path;
+    char *prepend;
+    size_t chanlen;
+    size_t pathlen;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return NULL;
@@ -515,7 +500,7 @@ v3_channel_path(v3_handle v3h, uint16_t id) {
 
     v3c = _v3_handles[v3h];
 
-    for (c = v3c->channels; c; c = (!c) ? v3c->channels : c->next) {
+    for (parent = 0, path = NULL, c = v3c->channels; c; c = (!c) ? v3c->channels : c->next) {
         if ((!parent && c->id == id) || (parent && c->id == parent)) {
             chanlen = strlen(c->name);
             if (!path) {
@@ -525,7 +510,7 @@ v3_channel_path(v3_handle v3h, uint16_t id) {
             } else {
                 prepend = calloc(chanlen + 1 + pathlen, 1);
                 memcpy(prepend, c->name, chanlen);
-                prepend[chanlen] = sep;
+                prepend[chanlen] = '/';
                 memcpy(prepend + chanlen + 1, path, pathlen);
                 pathlen += chanlen + 1;
                 free(path);
@@ -548,14 +533,13 @@ uint16_t
 v3_channel_id(v3_handle v3h, const char *path) {
     _v3_connection *v3c;
     v3_channel *c;
-    const char sep = '/';
-    const char *p = path;
-    const char **names = NULL;
+    const char *p;
+    const char **names;
     char name[sizeof(c->name)];
-    int depth = 0;
-    size_t len = 0;
+    int depth;
+    size_t len;
     int ctr;
-    uint16_t id = 0;
+    uint16_t id;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
         return 0;
@@ -571,8 +555,8 @@ v3_channel_id(v3_handle v3h, const char *path) {
         _v3_leave(v3h, __func__);
         return 0;
     }
-    for (;;) {
-        if (*p == sep || !*p) {
+    for (p = path, names = NULL, depth = 0, len = 0;;) {
+        if (*p == '/' || !*p) {
             names = realloc(names, sizeof(*names) * ++depth);
             if (!len) {
                 free(names);
@@ -580,7 +564,7 @@ v3_channel_id(v3_handle v3h, const char *path) {
                 _v3_leave(v3h, __func__);
                 return 0;
             }
-            names[depth-1] = p - len;
+            names[depth - 1] = p - len;
             len = 0;
             if (!*p) {
                 break;
@@ -590,16 +574,16 @@ v3_channel_id(v3_handle v3h, const char *path) {
         }
         ++p;
     }
-    for (ctr = 0; ctr < depth; ++ctr) {
-        memset(name, 0, sizeof(name));
+    for (id = 0, ctr = 0; ctr < depth; ++ctr) {
         len = strlen(names[ctr]) - ((ctr + 1 < depth) ? strlen(names[ctr + 1]) + 1 : 0);
-        if (len > sizeof(name)) {
+        if (len >= sizeof(name)) {
             id = 0;
             break;
         }
-        strncpy(name, names[ctr], len);
+        memcpy(name, names[ctr], len);
+        name[len] = 0;
         for (c = v3c->channels; c; c = c->next) {
-            if (c->parent == id && !strncmp(c->name, name, sizeof(name))) {
+            if (c->parent == id && !strncmp(c->name, name, sizeof(name) - 1)) {
                 id = c->id;
                 break;
             }
@@ -621,7 +605,8 @@ int
 v3_channel_sort(v3_handle v3h, uint16_t left, uint16_t right) {
     _v3_connection *v3c;
     v3_channel *c;
-    int sort = 0, lpos = -1, rpos = -1;
+    int lpos;
+    int rpos;
     int ctr;
 
     if (_v3_handle_valid(v3h) != V3_OK) {
@@ -633,7 +618,7 @@ v3_channel_sort(v3_handle v3h, uint16_t left, uint16_t right) {
 
     v3c = _v3_handles[v3h];
 
-    for (c = v3c->channels, ctr = 0; c; c = c->next, ++ctr) {
+    for (lpos = -1, rpos = -1, c = v3c->channels, ctr = 0; c; c = c->next, ++ctr) {
         if (c->id == left) {
             lpos = ctr;
         }
@@ -641,13 +626,10 @@ v3_channel_sort(v3_handle v3h, uint16_t left, uint16_t right) {
             rpos = ctr;
         }
     }
-    if (lpos != -1 && rpos != -1 && lpos != rpos) {
-        sort = (lpos < rpos) ? -1 : 1;
-    }
 
     _v3_mutex_unlock(v3h);
 
     _v3_leave(v3h, __func__);
-    return sort;
+    return (lpos != -1 && rpos != -1 && lpos != rpos) ? ((lpos < rpos) ? -1 : 1) : 0;
 }
 

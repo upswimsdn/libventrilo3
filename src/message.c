@@ -246,7 +246,7 @@ _v3_msg_handshake_put(v3_handle v3h) {
 
     m = _v3_msg_alloc(v3h, V3_MSG_HANDSHAKE, sizeof(_v3_msg_handshake), (void **)&mc);
 
-    strncpy(mc->protocol, V3_PROTO_VERSION, sizeof(mc->protocol) - 1);
+    strncpy(mc->protocol, V3_PROTOCOL_VERSION, sizeof(mc->protocol) - 1);
     for (ctr = 0; ctr < sizeof(mc->salt_1) - 1; ++ctr) {
         mc->salt_1[ctr] = rand() % 93 + 33;
         mc->salt_2[ctr] = rand() % 93 + 33;
@@ -347,7 +347,7 @@ _v3_msg_login_put(v3_handle v3h) {
     mc->handshake_idx = v3c->handshake_idx;
     memcpy(mc->handshake, v3c->handshake, sizeof(mc->handshake));
     strncpy(mc->version, V3_CLIENT_VERSION, sizeof(mc->version) - 1);
-    strncpy(mc->protocol, V3_PROTO_VERSION, sizeof(mc->protocol) - 1);
+    strncpy(mc->protocol, V3_PROTOCOL_VERSION, sizeof(mc->protocol) - 1);
     if (*v3c->password) {
         _v3_password(v3h, v3c->password, mc->password);
     }
@@ -1025,38 +1025,36 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
       case V3_MSG_SRV_PROP:
         {
             _v3_msg_srv_prop *mc = m->data;
-            v3_prop *prop = &v3c->prop;
             void *values[] = {
-                [0x02] = &prop->chat_filter,
-                [0x03] = &prop->chan_order,
-                [0x05] = &prop->motd_always,
-                [0x0b] = &prop->inactive_timeout,
-                [0x0c] = &prop->inactive_action,
-                [0x0d] = &prop->inactive_channel,
-                [0x0e] = &prop->rem_srv_comment,
-                [0x0f] = &prop->rem_chan_name,
-                [0x10] = &prop->rem_chan_comment,
-                [0x11] = &prop->rem_user_name,
-                [0x12] = &prop->rem_user_comment,
-                [0x13] = &prop->srv_comment,
-                [0x14] = &prop->wav_disable,
-                [0x15] = &prop->tts_disable,
-                [0x18] = &prop->rem_login,
-                [0x19] = &prop->max_guest,
-                [0x1a] = &prop->auto_kick,
-                [0x1b] = &prop->auto_ban,
+                [0x02] = &v3c->prop.chat_filter,
+                [0x03] = &v3c->prop.chan_order,
+                [0x05] = &v3c->prop.motd_always,
+                [0x0b] = &v3c->prop.inactive_timeout,
+                [0x0c] = &v3c->prop.inactive_action,
+                [0x0d] = &v3c->prop.inactive_channel,
+                [0x0e] = &v3c->prop.rem_srv_comment,
+                [0x0f] = &v3c->prop.rem_chan_name,
+                [0x10] = &v3c->prop.rem_chan_comment,
+                [0x11] = &v3c->prop.rem_user_name,
+                [0x12] = &v3c->prop.rem_user_comment,
+                [0x13] = &v3c->prop.srv_comment,
+                [0x14] = &v3c->prop.wav_disable,
+                [0x15] = &v3c->prop.tts_disable,
+                [0x18] = &v3c->prop.rem_login,
+                [0x19] = &v3c->prop.max_guest,
+                [0x1a] = &v3c->prop.auto_kick,
+                [0x1b] = &v3c->prop.auto_ban,
                 [0x1c] = NULL
             };
             v3_filter *filters[] = {
-                [0x07] = &prop->chat_spam,
-                [0x08] = &prop->comment_spam,
-                [0x09] = &prop->wav_spam,
-                [0x0a] = &prop->tts_spam,
-                [0x16] = &prop->chan_spam,
+                [0x07] = &v3c->prop.chat_spam,
+                [0x08] = &v3c->prop.comment_spam,
+                [0x09] = &v3c->prop.wav_spam,
+                [0x0a] = &v3c->prop.tts_spam,
+                [0x16] = &v3c->prop.chan_spam,
                 [0x1c] = NULL
             };
             v3_filter *filter;
-            const size_t count = sizeof(values) / sizeof(*values);
             char value[0x100] = "";
             v3_event ev = { .type = 0 };
 
@@ -1067,16 +1065,16 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     break;
                 }
               case V3_PROP_CLIENT:
-                if (mc->property >= count) {
+                if (mc->property >= sizeof(values) / sizeof(*values)) {
                     break;
                 }
                 if (mc->subtype != V3_PROP_SEND) {
                     if (!mc->ignore) {
                         _v3_msg_string_get(v3h, m->data + sizeof(_v3_msg_srv_prop), value, sizeof(value) - 1);
-                        if (values[mc->property] == &prop->inactive_channel) {
-                            prop->inactive_channel = v3_channel_id(v3h, value);
-                        } else if (values[mc->property] == &prop->srv_comment) {
-                            strncpy(prop->srv_comment, value, sizeof(prop->srv_comment) - 1);
+                        if (values[mc->property] == &v3c->prop.inactive_channel) {
+                            v3c->prop.inactive_channel = v3_channel_id(v3h, value);
+                        } else if (values[mc->property] == &v3c->prop.srv_comment) {
+                            strncpy(v3c->prop.srv_comment, value, sizeof(v3c->prop.srv_comment) - 1);
                         } else if (values[mc->property]) {
                             *(uint16_t *)values[mc->property] = atoi(value);
                         } else if ((filter = filters[mc->property])) {
@@ -1084,11 +1082,11 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                         }
                     }
                     if (mc->subtype == V3_PROP_CLIENT) {
-                        if (values[mc->property] == &prop->chat_filter) {
+                        if (values[mc->property] == &v3c->prop.chat_filter) {
                             ev.type = V3_EVENT_PROP_CHAT_FILTER;
-                        } else if (values[mc->property] == &prop->chan_order) {
+                        } else if (values[mc->property] == &v3c->prop.chan_order) {
                             ev.type = V3_EVENT_PROP_CHAN_ORDER;
-                        } else if (values[mc->property] == &prop->motd_always) {
+                        } else if (values[mc->property] == &v3c->prop.motd_always) {
                             ev.type = V3_EVENT_PROP_MOTD_ALWAYS;
                         }
                         if (ev.type) {

@@ -35,7 +35,7 @@
 
 #define V3_CLIENT_PLATFORM  "WIN32"
 #define V3_CLIENT_VERSION   "3.0.5"
-#define V3_PROTO_VERSION    "3.0.0"
+#define V3_PROTOCOL_VERSION "3.0.0"
 
 #define V3_MAX_CONN 64
 
@@ -296,7 +296,7 @@ void        _v3_debug(v3_handle v3h, int level, const char *format, ...);
 void        _v3_error(v3_handle v3h, const char *format, ...);
 void        _v3_enter(v3_handle v3h, const char *func);
 void        _v3_leave(v3_handle v3h, const char *func);
-void        _v3_packet(v3_handle v3h, const uint8_t *data, int len);
+void        _v3_packet(v3_handle v3h, const void *data, size_t len);
 
 int         _v3_parse_server(const char *server, uint32_t *ip, uint16_t *port);
 uint32_t    _v3_resolv(const char *hostname);
@@ -377,7 +377,7 @@ int         _v3_canceling(v3_handle v3h);
 void        _v3_close(v3_handle v3h);
 int         _v3_connect(v3_handle v3h, int tcp);
 void        _v3_timestamp(v3_handle v3h, struct timeval *tv);
-int         _v3_send(v3_handle v3h, _v3_message *m);
+int         _v3_send(v3_handle v3h, const _v3_message *m);
 void *      _v3_recv(v3_handle v3h, int block);
 
 #endif // _LIBVENTRILO3_H

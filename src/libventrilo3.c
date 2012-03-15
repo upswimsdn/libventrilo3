@@ -47,6 +47,7 @@
 # include <sys/types.h>
 # include <sys/socket.h>
 # include <netinet/in.h>
+# include <netinet/tcp.h>
 # include <netdb.h>
 # include <arpa/inet.h>
 #endif
@@ -114,7 +115,7 @@ v3_init(const char *server, const char *username) {
         _v3_leave(V3_HANDLE_NONE, __func__);
         return V3_HANDLE_NONE;
     }
-    _v3_handles[v3h] = calloc(1, sizeof(_v3_connection));
+    _v3_handles[v3h] = calloc(1, sizeof(**_v3_handles));
 
     _v3_mutex_unlock(V3_HANDLE_NONE);
 
@@ -154,7 +155,7 @@ v3_find(const char *server, const char *username) {
     _v3_mutex_lock(V3_HANDLE_NONE);
 
     for (v3h = 0; v3h < V3_MAX_CONN && (v3c = _v3_handles[v3h]); ++v3h) {
-        if (v3c->ip == ip && v3c->port == port && !strncmp(v3c->luser.name, username, sizeof(v3c->luser.name))) {
+        if (v3c->ip == ip && v3c->port == port && !strncmp(v3c->luser.name, username, sizeof(v3c->luser.name) - 1)) {
             _v3_mutex_unlock(V3_HANDLE_NONE);
             _v3_leave(V3_HANDLE_NONE, __func__);
             return v3h;
@@ -322,10 +323,12 @@ _v3_debug(v3_handle v3h, int level, const char *format, ...) {
     va_start(args, format);
     vsnprintf(str, sizeof(str), format, args);
     va_end(args);
-    for (ctr = (v3h == V3_HANDLE_NONE) ? _stack : _v3_handles[v3h]->stack, *buf = 0; ctr > 0; --ctr) {
-        strncat(buf, "    ", sizeof(buf));
+    *buf = 0;
+    if ((v3h == V3_HANDLE_NONE && (_debug & V3_DBG_STACK)) ||
+        (v3h != V3_HANDLE_NONE && (_v3_handles[v3h]->debug & V3_DBG_STACK))) {
+        for (ctr = (v3h == V3_HANDLE_NONE) ? _stack : _v3_handles[v3h]->stack; ctr > 0; strncat(buf, "    ", sizeof(buf) - 1), --ctr);
     }
-    strncat(buf, str, sizeof(buf));
+    strncat(buf, str, sizeof(buf) - 1);
     gettimeofday(&tv, NULL);
     if (!(tm = localtime(&tv.tv_sec)) || !strftime(time, sizeof(time), "%T", tm)) {
 #ifndef ANDROID
@@ -358,8 +361,8 @@ v3_debug(v3_handle v3h, int level) {
 
 void
 _v3_error(v3_handle v3h, const char *format, ...) {
-    va_list args;
     _v3_connection *v3c;
+    va_list args;
 
     va_start(args, format);
     if (v3h == V3_HANDLE_NONE) {
@@ -427,36 +430,35 @@ _v3_leave(v3_handle v3h, const char *func) {
 }
 
 void
-_v3_packet(v3_handle v3h, const uint8_t *data, int len) {
+_v3_packet(v3_handle v3h, const void *data, size_t len) {
+    char buf[66];
+    uint8_t chr, *p, *b;
     int ctr;
-    char hex[64], chr[16];
 
     if (!(_v3_handles[v3h]->debug & V3_DBG_PACKET)) {
         return;
     }
+    memset(buf, ' ', sizeof(buf));
+
     _v3_debug(v3h, V3_DBG_PACKET, "PACKET: data length : %i", len);
-    if (len <= 0) {
-        return;
-    }
-    for (ctr = 0; ctr <= 16; ++ctr) {
-        if (!ctr) {
-            memset(hex, 0x20, sizeof(hex));
-            memset(chr, 0, sizeof(chr));
-        } else if (ctr == 16) {
-            _v3_debug(v3h, V3_DBG_PACKET, "PACKET:     %.*s     %.*s", ctr*3, hex, ctr, chr);
+
+    while (len) {
+        for (ctr = 0, p = (uint8_t *)buf, b = p + 50; ctr < 16; ++ctr) {
             if (len) {
-                ctr = -1;
-                continue;
+                --len;
+                chr = *(uint8_t *)data++;
+                *p++ = "0123456789abcdef"[chr >> 4];
+                *p++ = "0123456789abcdef"[chr & 0xf];
+                ++p;
+                *b++ = (chr < ' ' || chr >= 0x7f) ? '.' : chr;
+            } else {
+                *p++ = ' ';
+                *p++ = ' ';
+                ++p;
+                *b++ = 0;
             }
-            break;
         }
-        if (len) {
-            snprintf(hex+(ctr*3), 4, "%02X ", *data);
-            hex[ctr*3+3] = 0x20;
-            chr[ctr] = (*data >= 0x20 && *data < 0x7f) ? *data : '.';
-            ++data;
-            --len;
-        }
+        _v3_debug(v3h, V3_DBG_PACKET, "PACKET:     %.*s", sizeof(buf), buf);
     }
 }
 
@@ -529,7 +531,7 @@ _v3_resolv(const char *hostname) {
         }
         free(tmphstbuf);
 #else
-        /* if gethostbyname_r does not exist, assume that gethostbyname is re-entrant */
+        /* if gethostbyname_r does not exist, assume gethostbyname is re-entrant */
         hp = gethostbyname(hostname);
 #endif
         if (res || !hp || !hp->h_addr || hp->h_length < 1) {
@@ -652,7 +654,7 @@ _v3_strncpy(char *dest, const char *src, size_t n) {
     uint8_t *_src = (uint8_t *)src;
 
     while (n--) {
-        if ((*_dest++ = (*_src && *_src < 0x20) ? 0x20 : *_src)) {
+        if ((*_dest++ = (*_src && *_src < ' ') ? ' ' : *_src)) {
             ++_src;
         }
     }
