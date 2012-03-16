@@ -253,8 +253,7 @@ _v3_recv(v3_handle v3h, int block) {
                 _v3_debug(v3h, V3_DBG_PACKET, V3_RENC_TCP);
                 m->len = ntohs(m->len);
                 _v3_debug(v3h, V3_DBG_SOCKET, "receiving %i bytes", m->len);
-                m->data = malloc(m->len);
-                memset(m->data, 0, m->len);
+                m->data = calloc(1, m->len);
                 ret = 0;
             } else {
                 _v3_debug(v3h, V3_DBG_SOCKET, "received %i of %u remaining bytes", ret, rem);

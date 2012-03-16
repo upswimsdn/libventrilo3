@@ -314,6 +314,7 @@ _v3_debug(v3_handle v3h, int level, const char *format, ...) {
     char time[32];
     struct timeval tv;
     struct tm *tm;
+    size_t n;
     int ctr;
 
     if ((v3h == V3_HANDLE_NONE && !(_debug & level)) ||
@@ -323,12 +324,14 @@ _v3_debug(v3_handle v3h, int level, const char *format, ...) {
     va_start(args, format);
     vsnprintf(str, sizeof(str), format, args);
     va_end(args);
+    n = sizeof(buf) - 1;
+    buf[n] = 0;
     *buf = 0;
     if ((v3h == V3_HANDLE_NONE && (_debug & V3_DBG_STACK)) ||
         (v3h != V3_HANDLE_NONE && (_v3_handles[v3h]->debug & V3_DBG_STACK))) {
-        for (ctr = (v3h == V3_HANDLE_NONE) ? _stack : _v3_handles[v3h]->stack; ctr > 0; strncat(buf, "    ", sizeof(buf) - 1), --ctr);
+        for (ctr = (v3h == V3_HANDLE_NONE) ? _stack : _v3_handles[v3h]->stack; ctr > 0; strncat(buf, "    ", n - strlen(buf)), --ctr);
     }
-    strncat(buf, str, sizeof(buf) - 1);
+    strncat(buf, str, n - strlen(buf));
     gettimeofday(&tv, NULL);
     if (!(tm = localtime(&tv.tv_sec)) || !strftime(time, sizeof(time), "%T", tm)) {
 #ifndef ANDROID
@@ -534,12 +537,12 @@ _v3_resolv(const char *hostname) {
         /* if gethostbyname_r does not exist, assume gethostbyname is re-entrant */
         hp = gethostbyname(hostname);
 #endif
-        if (res || !hp || !hp->h_addr || hp->h_length < 1) {
+        if (res || !hp || !hp->h_addr || hp->h_length <= 0) {
             _v3_error(V3_HANDLE_NONE, "hostname lookup failed for: '%s'", hostname);
             _v3_leave(V3_HANDLE_NONE, __func__);
             return 0;
         }
-        memcpy(&ip.s_addr, hp->h_addr, sizeof(ip.s_addr));
+        ip.s_addr = *(in_addr_t *)*hp->h_addr_list;
     }
     _v3_debug(V3_HANDLE_NONE, V3_DBG_INFO, "resolved to ipv4 address: '%s'", inet_ntoa(ip));
 

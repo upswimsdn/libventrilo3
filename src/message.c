@@ -31,16 +31,14 @@ _v3_msg_alloc(v3_handle v3h, uint32_t type, size_t len, void **contents) {
     _v3_enter(v3h, __func__);
 
     _v3_debug(v3h, V3_DBG_MEMORY, "allocating message: %u bytes", sizeof(_v3_message));
-    m = malloc(sizeof(_v3_message));
-    memset(m, 0, sizeof(_v3_message));
+    m = calloc(1, sizeof(_v3_message));
 
     m->type = type;
     m->len = len;
 
     if (len) {
         _v3_debug(v3h, V3_DBG_MEMORY, "allocating data: %u bytes", len);
-        m->data = malloc(len);
-        memset(m->data, 0, len);
+        m->data = calloc(1, len);
     }
     if (contents) {
         *contents = m->data;
@@ -1055,7 +1053,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                 [0x1c] = NULL
             };
             v3_filter *filter;
-            char value[0x100] = "";
+            char value[0x100];
             v3_event ev = { .type = 0 };
 
             switch (mc->subtype) {
@@ -1070,6 +1068,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                 }
                 if (mc->subtype != V3_PROP_SEND) {
                     if (!mc->ignore) {
+                        value[sizeof(value) - 1] = 0;
                         _v3_msg_string_get(v3h, m->data + sizeof(_v3_msg_srv_prop), value, sizeof(value) - 1);
                         if (values[mc->property] == &v3c->prop.inactive_channel) {
                             v3c->prop.inactive_channel = v3_channel_id(v3h, value);
@@ -1237,6 +1236,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     if (!ev.type) {
                         ev.type = (!v3c->logged_in) ? V3_EVENT_USER_LIST : V3_EVENT_USER_LOGIN;
                     }
+                    name[sizeof(name) - 1] = 0;
                     strncpy(name, u.name, sizeof(name) - 1);
                     memset(&u, 0, sizeof(v3_user));
                     strncpy(u.name, name, sizeof(u.name) - 1);
@@ -1353,7 +1353,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     while (user) {
                         if (user->phantom_owner && user->phantom_owner == u.id) {
                             ev.type = V3_EVENT_USER_LOGOUT;
-                            memcpy(&ev.user, user, sizeof(v3_user));
+                            ev.user = *user;
                             ev.user.next = NULL;
                             _v3_event_push(v3h, &ev);
                             u.next = user;

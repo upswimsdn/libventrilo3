@@ -415,7 +415,7 @@ v3_lacct(v3_handle v3h, v3_account *a) {
         return V3_FAILURE;
     }
 
-    memcpy(a, &_v3_handles[v3h]->lacct, sizeof(v3_account));
+    *a = _v3_handles[v3h]->lacct;
 
     return V3_OK;
 }
