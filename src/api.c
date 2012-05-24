@@ -24,6 +24,10 @@
  * along with libventrilo3.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <string.h>
+
+#include "libventrilo3.h"
+
 int
 v3_logged_in(v3_handle v3h) {
     if (_v3_handle_valid(v3h) == V3_OK) {

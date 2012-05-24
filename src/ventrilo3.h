@@ -83,8 +83,6 @@ struct v3_codec {
     char        name[128];
 };
 
-extern const v3_codec v3_codecs[];
-
 struct v3_coder {
     int16_t     index;
     int16_t     format;

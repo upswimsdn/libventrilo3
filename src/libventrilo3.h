@@ -27,11 +27,38 @@
 #ifndef _LIBVENTRILO3_H
 #define _LIBVENTRILO3_H
 
-#include "ventrilo3.h"
+#ifdef ANDROID
+# include <android/log.h>
+#else
+# include "config.h"
+#endif
+
+#include <sys/time.h>
 
 #define __USE_UNIX98
 #include <pthread.h>
 #undef __USE_UNIX98
+
+#ifdef HAVE_GSM_H
+# include <gsm.h>
+#elif defined(HAVE_GSM_GSM_H)
+# include <gsm/gsm.h>
+#endif
+#ifdef HAVE_OPUS
+# include <opus/opus.h>
+#endif
+#ifdef HAVE_SPEEX
+# include <speex/speex.h>
+#endif
+#ifdef HAVE_SPEEXDSP
+# include <speex/speex_resampler.h>
+#endif
+
+#define true    1
+#define false   0
+
+#include "ventrilo3.h"
+#include "message.h"
 
 #define V3_CLIENT_PLATFORM  "WIN32"
 #define V3_CLIENT_VERSION   "3.0.5"
@@ -42,13 +69,9 @@
 typedef struct _v3_connection   _v3_connection;
 typedef struct v3_key_ctx       v3_key_ctx;
 
-pthread_mutex_t _v3_handles_mutex        = PTHREAD_MUTEX_INITIALIZER;
-_v3_connection *_v3_handles[V3_MAX_CONN] = { NULL };
+extern _v3_connection *_v3_handles[];
 
-int16_t  _stack      = 0;
-uint16_t _debug      = V3_DBG_NONE;
-char     _error[256] = "";
-float    _volume     = 1.0;
+extern float _volume;
 
 struct _v3_connection {
     int16_t             stack;
@@ -151,7 +174,7 @@ enum {
 };
 
 /* dsp.c */
-const v3_codec v3_codecs[] = {
+static const v3_codec v3_codecs[] = {
 #ifdef HAVE_GSM
     { 0, 0,  3,  640,  8000, -1, "GSM 6.10 8kHz" },
     { 0, 1,  4,  640, 11025, -1, "GSM 6.10 11kHz" },
@@ -208,7 +231,7 @@ struct v3_key_ctx {
 };
 
 /* encryption.c */
-const uint32_t _v3_hash_table[] = {
+static const uint32_t _v3_hash_table[] = {
     0x00000000, 0x77073096, 0xee0e612c, 0x990951ba,
     0x076dc419, 0x706af48f, 0xe963a535, 0x9e6495a3,
     0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
@@ -282,7 +305,7 @@ typedef struct {
     uint16_t    port;
 } v3_auth_t;
 
-const v3_auth_t v3_auth[] = {
+static const v3_auth_t v3_auth[] = {
     { 1,  "72.51.46.31",   6100 },
     { 2,  "64.34.178.178", 6100 },
     { 3,  "74.54.61.194",  6100 },
@@ -310,6 +333,9 @@ char *      _v3_strncpy(char *dest, const char *src, size_t n);
 
 /* data.c */
 int         _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n);
+void        _v3_data_destroy(v3_handle v3h);
+void        _v3_event_push(v3_handle v3h, v3_event *ev);
+void        _v3_event_clear(v3_handle v3h);
 
 /* dsp.c */
 void        _v3_coder_destroy(v3_handle v3h, v3_coder *coder);
@@ -345,6 +371,8 @@ int         _v3_audio_decode(
 
 /* encryption.c */
 void        _v3_password(v3_handle v3h, const char *password, uint8_t *hash);
+uint32_t    _v3_hash_table_scramble(v3_handle v3h, uint16_t type, uint32_t val);
+uint32_t    _v3_hash_table_sum(v3_handle v3h, uint32_t type);
 int         _v3_read_keys(v3_handle v3h, v3_key_ctx *client, v3_key_ctx *server, uint8_t *data, uint32_t len);
 void        _v3_dec_init(v3_handle v3h, uint8_t *data, uint32_t len);
 void        _v3_enc_init(v3_handle v3h, uint8_t *data, uint32_t len);
@@ -359,15 +387,20 @@ int         _v3_udp_send(v3_handle v3h, int sd, uint32_t vnum, uint32_t ip, uint
 int         _v3_udp_recv(v3_handle v3h, int sd, uint8_t *data, uint32_t maxsz, const v3_auth_t *vauth, uint16_t *handshake_idx);
 
 /* message.c */
+void *      _v3_msg_alloc(v3_handle v3h, uint32_t type, size_t len, void **contents);
+void        _v3_msg_free(v3_handle v3h, _v3_message *m);
+int         _v3_msg_handshake_put(v3_handle v3h);
 int         _v3_msg_move_put(v3_handle v3h, uint16_t id, uint16_t channel);
 int         _v3_msg_chat_put(v3_handle v3h, uint16_t subtype, const char *message);
 int         _v3_msg_user_option_put(v3_handle v3h, uint16_t user_id, uint16_t subtype, uint32_t value);
 int         _v3_msg_chan_list_put(v3_handle v3h, uint16_t subtype, uint16_t user, const char *password, const v3_channel *c);
+int         _v3_msg_timestamp_put(v3_handle v3h);
 int         _v3_msg_audio_put(v3_handle v3h, uint16_t subtype, int16_t index, int16_t format, uint32_t pcmlen, const void *data, uint32_t datalen);
 int         _v3_msg_phantom_put(v3_handle v3h, uint16_t subtype, uint16_t phantom, uint16_t channel);
 int         _v3_msg_user_list_put(v3_handle v3h, uint16_t subtype, const v3_user *u);
 int         _v3_msg_user_page_put(v3_handle v3h, uint16_t to, uint16_t from);
 int         _v3_msg_admin_put(v3_handle v3h, uint16_t subtype, uint16_t user, const void *data);
+int         _v3_msg_process(v3_handle v3h, _v3_message *m);
 
 /* network.c */
 int         _v3_connected(v3_handle v3h);

@@ -44,6 +44,13 @@
  * http://www.gnu.org/licenses/gpl-2.0.txt
  */
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
+
+#include "libventrilo3.h"
+
 void
 _v3_password(v3_handle v3h, const char *password, uint8_t *hash) {
     uint32_t crc, i, j, cnt, len;

@@ -24,63 +24,26 @@
  * along with libventrilo3.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifdef ANDROID
-# include <android/log.h>
-#else
-# include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
-#include <time.h>
-#include <sys/time.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 #include <errno.h>
-#include <math.h>
-
-#ifdef WIN32
-# include <winsock.h>
-# define SHUT_WR SD_SEND
-#else
-# include <sys/types.h>
-# include <sys/socket.h>
-# include <netinet/in.h>
-# include <netinet/tcp.h>
-# include <netdb.h>
-# include <arpa/inet.h>
-#endif
-
-#ifdef HAVE_GSM_H
-# include <gsm.h>
-#elif defined(HAVE_GSM_GSM_H)
-# include <gsm/gsm.h>
-#endif
-#ifdef HAVE_OPUS
-# include <opus/opus.h>
-#endif
-#ifdef HAVE_SPEEX
-# include <speex/speex.h>
-#endif
-#ifdef HAVE_SPEEXDSP
-# include <speex/speex_resampler.h>
-#endif
 
 #include "libventrilo3.h"
 
-#define false   0
-#define true    1
+pthread_mutex_t _v3_handles_mutex        = PTHREAD_MUTEX_INITIALIZER;
+_v3_connection *_v3_handles[V3_MAX_CONN] = { NULL };
 
-#include "message.h"
-
-#include "api.c"
-#include "data.c"
-#include "dsp.c"
-#include "encryption.c"
-#include "handshake.c"
-#include "message.c"
-#include "network.c"
+int16_t  _stack      = 0;
+uint16_t _debug      = V3_DBG_NONE;
+char     _error[256] = "";
+float    _volume     = 1.0;
 
 /*
  * Initialize a libventrilo3 handle for a server connection.
@@ -563,15 +526,15 @@ _v3_mutex_init(v3_handle v3h) {
         pthread_mutexattr_init(&mta);
         pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_RECURSIVE);
         _v3_debug(v3h, V3_DBG_MUTEX, "initializing connection mutex");
-        v3c->mutex = malloc(sizeof(pthread_mutex_t));
+        v3c->mutex = malloc(sizeof(*v3c->mutex));
         pthread_mutex_init(v3c->mutex, &mta);
     }
     if (!v3c->event_mutex) {
         pthread_mutexattr_init(&mta);
         pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_RECURSIVE);
         _v3_debug(v3h, V3_DBG_MUTEX, "initializing eventq mutex");
-        v3c->event_mutex = malloc(sizeof(pthread_mutex_t));
-        v3c->event_cond = malloc(sizeof(pthread_cond_t));
+        v3c->event_mutex = malloc(sizeof(*v3c->event_mutex));
+        v3c->event_cond = malloc(sizeof(*v3c->event_cond));
         pthread_mutex_init(v3c->event_mutex, &mta);
         pthread_cond_init(v3c->event_cond, (pthread_condattr_t *)&mta);
     }

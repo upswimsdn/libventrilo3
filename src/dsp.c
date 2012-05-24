@@ -24,6 +24,12 @@
  * along with libventrilo3.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <string.h>
+#include <arpa/inet.h>
+#include <math.h>
+
+#include "libventrilo3.h"
+
 void
 _v3_coder_destroy(v3_handle v3h, v3_coder *coder) {
     _v3_enter(v3h, __func__);
@@ -293,7 +299,7 @@ _v3_audio_encode(
       case 2:
         {
             const v3_codec *codec = v3_codec_get(index, format);
-            int err;
+            int tmp;
 
             _v3_debug(v3h, V3_DBG_INFO, "encoding %u bytes of pcm to opus @ %u", pcmlen, codec->rate);
             if (!coder->state || channels != coder->channels) {
@@ -302,27 +308,27 @@ _v3_audio_encode(
                     coder->state = NULL;
                     _v3_debug(v3h, V3_DBG_MEMORY, "released opus state");
                 }
-                if (!(coder->state = opus_encoder_create(codec->rate, channels, OPUS_APPLICATION_AUDIO, &err))) {
-                    _v3_debug(v3h, V3_DBG_INFO, "failed to create opus encoder: %s", opus_strerror(err));
+                if (!(coder->state = opus_encoder_create(codec->rate, channels, OPUS_APPLICATION_AUDIO, &tmp))) {
+                    _v3_debug(v3h, V3_DBG_INFO, "failed to create opus encoder: %s", opus_strerror(tmp));
                     ret = V3_FAILURE;
                     break;
                 }
-                if ((err = opus_encoder_ctl(coder->state, OPUS_SET_COMPLEXITY(10))) != OPUS_OK) {
-                    _v3_debug(v3h, V3_DBG_INFO, "opus_encoder_ctl: OPUS_SET_COMPLEXITY: %s", opus_strerror(err));
+                if ((tmp = opus_encoder_ctl(coder->state, OPUS_SET_COMPLEXITY(10))) != OPUS_OK) {
+                    _v3_debug(v3h, V3_DBG_INFO, "opus_encoder_ctl: OPUS_SET_COMPLEXITY: %s", opus_strerror(tmp));
                     opus_encoder_destroy(coder->state);
                     coder->state = NULL;
                     ret = V3_FAILURE;
                     break;
                 }
-                if ((err = opus_encoder_ctl(coder->state, OPUS_SET_VBR(0))) != OPUS_OK) {
-                    _v3_debug(v3h, V3_DBG_INFO, "opus_encoder_ctl: OPUS_SET_VBR: %s", opus_strerror(err));
+                if ((tmp = opus_encoder_ctl(coder->state, OPUS_SET_VBR(0))) != OPUS_OK) {
+                    _v3_debug(v3h, V3_DBG_INFO, "opus_encoder_ctl: OPUS_SET_VBR: %s", opus_strerror(tmp));
                     opus_encoder_destroy(coder->state);
                     coder->state = NULL;
                     ret = V3_FAILURE;
                     break;
                 }
-                if ((err = opus_encoder_ctl(coder->state, OPUS_SET_BITRATE(((index == 1) ? 79 : 43) * 1000))) != OPUS_OK) {
-                    _v3_debug(v3h, V3_DBG_INFO, "opus_encoder_ctl: OPUS_SET_BITRATE: %s", opus_strerror(err));
+                if ((tmp = opus_encoder_ctl(coder->state, OPUS_SET_BITRATE(((index == 1) ? 79 : 43) * 1000))) != OPUS_OK) {
+                    _v3_debug(v3h, V3_DBG_INFO, "opus_encoder_ctl: OPUS_SET_BITRATE: %s", opus_strerror(tmp));
                     opus_encoder_destroy(coder->state);
                     coder->state = NULL;
                     ret = V3_FAILURE;
@@ -334,10 +340,10 @@ _v3_audio_encode(
                 coder->encoder = true;
             }
             maxdatalen = (maxdatalen <= ((index == 1) ? 198 : 108)) ? maxdatalen : ((index == 1) ? 198 : 108);
-            if ((err = opus_encode(coder->state, (void *)pcm, codec->framesize / sizeof(int16_t), (void *)data, maxdatalen)) <= 0) {
+            if ((tmp = opus_encode(coder->state, (void *)pcm, codec->framesize / sizeof(int16_t), (void *)data, maxdatalen)) <= 0) {
                 _v3_debug(v3h, V3_DBG_INFO, "failed to encode opus packet");
             }
-            *datalen = err;
+            *datalen = tmp;
         }
         break;
 #endif

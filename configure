@@ -12375,7 +12375,6 @@ fi
 $as_echo "#define HAVE_SPEEX 1" >>confdefs.h
 
 	fi
-
 	if test "$enable_opus" != "no"; then
 
 pkg_failed=no
@@ -12474,7 +12473,6 @@ fi
 $as_echo "#define HAVE_OPUS 1" >>confdefs.h
 
 	fi
-
 	if test "$enable_speexdsp" != "no"; then
 
 pkg_failed=no

@@ -65,14 +65,12 @@ if test "x$HAVE_PKG_CONFIG" = "xyes"; then
 		AC_SUBST(speex_LIBS)
 		AC_DEFINE(HAVE_SPEEX, 1, [have speex])
 	fi
-
 	if test "$enable_opus" != "no"; then
 		PKG_CHECK_MODULES(opus, opus >= 0.9.11)
 		AC_SUBST(opus_CFLAGS)
 		AC_SUBST(opus_LIBS)
 		AC_DEFINE(HAVE_OPUS, 1, [have opus])
 	fi
-
 	if test "$enable_speexdsp" != "no"; then
 		PKG_CHECK_MODULES(speexdsp, speexdsp >= 1.2)
 		AC_SUBST(speexdsp_CFLAGS)

@@ -24,6 +24,11 @@
  * along with libventrilo3.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdlib.h>
+#include <string.h>
+
+#include "libventrilo3.h"
+
 int
 _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n) {
     _v3_connection *v3c;
@@ -228,8 +233,8 @@ _v3_event_push(v3_handle v3h, v3_event *ev) {
 
     pthread_mutex_lock(v3c->event_mutex);
 
-    last = calloc(1, sizeof(v3_event));
-    memcpy(last, ev, sizeof(v3_event) - sizeof(last->next));
+    last = calloc(1, sizeof(*last));
+    memcpy(last, ev, sizeof(*last) - sizeof(last->next));
     ev = last;
 
     for (last = v3c->eventq, ctr = 1; last && ++ctr && last->next; last = last->next);
@@ -261,7 +266,7 @@ _v3_event_pop(v3_handle v3h, int block, v3_event *ev) {
             return V3_FAILURE;
         }
     }
-    memcpy(ev, v3c->eventq, sizeof(v3_event) - sizeof(ev->next));
+    memcpy(ev, v3c->eventq, sizeof(*ev) - sizeof(ev->next));
     ev = v3c->eventq;
     v3c->eventq = ev->next;
     free(ev);

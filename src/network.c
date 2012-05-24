@@ -24,6 +24,18 @@
  * along with libventrilo3.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
+#include <errno.h>
+
+#include "libventrilo3.h"
+
 #define V3_SEND_TCP "======= sending TCP packet ======================================"
 #define V3_RENC_TCP "======= receiving encrypted TCP packet =========================="
 #define V3_RECV_TCP "======= received TCP packet ====================================="

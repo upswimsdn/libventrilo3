@@ -516,7 +516,7 @@ dev:
 	cd ../src/ && make dev
 	gcc -pthread -Wall -Wextra -g -I.. -I../src/ -o connection \
 		connection.c \
-		../src/libventrilo3.o \
+		../src/libventrilo3.a \
 		$(speex_LIBS) \
 		$(opus_LIBS) \
 		$(speexdsp_LIBS) \
@@ -529,7 +529,7 @@ jukebox:
 		`if pkg-config vorbisfile; then echo -n "-DHAVE_VORBIS"; fi` \
 		`if pkg-config flac; then echo -n "-DHAVE_FLAC"; fi` \
 		jukebox.c \
-		../src/libventrilo3.o \
+		../src/libventrilo3.a \
 		$(speex_LIBS) \
 		$(opus_LIBS) \
 		$(speexdsp_LIBS) \
