@@ -105,7 +105,7 @@ struct _v3_connection {
 
     float               volume;
     v3_coder            encoder;
-#if HAVE_SPEEXDSP
+#ifdef HAVE_SPEEXDSP
     struct {
         void *          state;
         uint32_t        in_rate;
@@ -113,7 +113,7 @@ struct _v3_connection {
         uint8_t         channels;
     } resampler;
 #endif
-    uint8_t             pcmq[1 << 16];
+    uint8_t             pcmq[65536];
     uint32_t            pcmqueued;
 
     v3_prop             prop;
@@ -152,17 +152,17 @@ enum {
 
 /* dsp.c */
 const v3_codec v3_codecs[] = {
-#if HAVE_GSM
+#ifdef HAVE_GSM
     { 0, 0,  3,  640,  8000, -1, "GSM 6.10 8kHz" },
     { 0, 1,  4,  640, 11025, -1, "GSM 6.10 11kHz" },
     { 0, 2,  7,  640, 22050, -1, "GSM 6.10 22kHz" },
     { 0, 3,  15, 640, 44100, -1, "GSM 6.10 44kHz" },
 #endif
-#if HAVE_CELT
-    { 1, 0,  15, 640, 44100, -1, "CELT 0.7 44kHz" },
-    { 2, 0,  7,  640, 22050, -1, "CELT 0.7 22kHz" },
+#ifdef HAVE_OPUS
+    { 1, 0,  1, 960*2, 48000, -1, "Opus 48kHz" },
+    { 2, 0,  1, 960*2, 48000, -1, "Opus 48kHz" },
 #endif
-#if HAVE_SPEEX
+#ifdef HAVE_SPEEX
     { 3, 0,  6,  320,  8000,  0, "Speex 8kHz Quality 0" },
     { 3, 1,  6,  320,  8000,  1, "Speex 8kHz Quality 1" },
     { 3, 2,  6,  320,  8000,  2, "Speex 8kHz Quality 2" },
@@ -327,9 +327,7 @@ int         _v3_audio_encode(
                     uint8_t *data,
                     uint32_t *datalen,
                     /* optional args */
-                    uint8_t channels,
-                    uint16_t *framecount,
-                    uint8_t *celtfragsize);
+                    uint8_t channels);
 int         _v3_audio_decode(
                     v3_handle v3h,
                     /* encoded input */
@@ -343,7 +341,7 @@ int         _v3_audio_decode(
                     uint32_t *pcmlen,
                     /* optional args */
                     uint32_t *rate,
-                    uint8_t channels);
+                    uint8_t *channels);
 
 /* encryption.c */
 void        _v3_password(v3_handle v3h, const char *password, uint8_t *hash);

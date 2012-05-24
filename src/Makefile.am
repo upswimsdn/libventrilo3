@@ -7,7 +7,7 @@ libventrilo3_la_SOURCES = libventrilo3.c libventrilo3.h
 
 libventrilo3_la_LDFLAGS = -version-info 1:0:0
 
-libventrilo3_la_LIBADD = $(speex_LIBS) $(celt_LIBS) $(speexdsp_LIBS) -lm
+libventrilo3_la_LIBADD = $(speex_LIBS) $(opus_LIBS) $(speexdsp_LIBS) -lm
 
 .PHONY: dev
 

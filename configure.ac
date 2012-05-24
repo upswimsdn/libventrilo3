@@ -36,10 +36,11 @@ AC_CHECK_LIB([m], [tan], [], [
 
 AC_ARG_ENABLE(gsm,      [  --disable-gsm           disable GSM codec support],       [disable_gsm=yes])
 AC_ARG_ENABLE(speex,    [  --disable-speex         disable Speex codec support],     [disable_speex=yes])
-AC_ARG_ENABLE(celt,     [  --disable-celt          disable CELT codec support],      [disable_celt=yes])
+AC_ARG_ENABLE(opus,     [  --disable-opus          disable Opus codec support],      [disable_opus=yes])
 AC_ARG_ENABLE(speexdsp, [  --disable-speexdsp      disable Speex resampler support], [disable_speexdsp=yes])
 
-if test "$enable_gsm" != "no" ; then
+# Checks for header files.
+if test "$enable_gsm" != "no"; then
 	AC_CHECK_LIB([gsm], [gsm_create], [], [
 		echo "error: cannot find libgsm: Is it installed? Also make sure you have the"
 		echo "       libgsm development packages installed"
@@ -53,36 +54,33 @@ if test "$enable_gsm" != "no" ; then
 			])
 		])
 	AC_DEFINE(HAVE_GSM, 1, [have gsm])
-else
-	AC_DEFINE(HAVE_GSM, 0, [have gsm])
 fi
 
-# Checks for header files.
-if test "$enable_speex" != "no" ; then
-	PKG_CHECK_MODULES(speex, speex >= 1.2)
-	AC_SUBST(speex_CFLAGS)
-	AC_SUBST(speex_LIBS)
-	AC_DEFINE(HAVE_SPEEX, 1, [have speex])
-else
-	AC_DEFINE(HAVE_SPEEX, 0, [have speex])
-fi
+PKG_PROG_PKG_CONFIG
+AC_CHECK_PROG(HAVE_PKG_CONFIG, pkg-config, yes)
+if test "x$HAVE_PKG_CONFIG" = "xyes"; then
+	if test "$enable_speex" != "no"; then
+		PKG_CHECK_MODULES(speex, speex >= 1.2)
+		AC_SUBST(speex_CFLAGS)
+		AC_SUBST(speex_LIBS)
+		AC_DEFINE(HAVE_SPEEX, 1, [have speex])
+	fi
 
-if test "$enable_celt" != "no" ; then
-	PKG_CHECK_MODULES(celt, celt = 0.7.1)
-	AC_SUBST(celt_CFLAGS)
-	AC_SUBST(celt_LIBS)
-	AC_DEFINE(HAVE_CELT, 1, [have celt])
-else
-	AC_DEFINE(HAVE_CELT, 0, [have celt])
-fi
+	if test "$enable_opus" != "no"; then
+		PKG_CHECK_MODULES(opus, opus >= 0.9.11)
+		AC_SUBST(opus_CFLAGS)
+		AC_SUBST(opus_LIBS)
+		AC_DEFINE(HAVE_OPUS, 1, [have opus])
+	fi
 
-if test "$enable_speexdsp" != "no" ; then
-	PKG_CHECK_MODULES(speexdsp, speexdsp >= 1.2)
-	AC_SUBST(speexdsp_CFLAGS)
-	AC_SUBST(speexdsp_LIBS)
-	AC_DEFINE(HAVE_SPEEXDSP, 1, [have speexdsp])
+	if test "$enable_speexdsp" != "no"; then
+		PKG_CHECK_MODULES(speexdsp, speexdsp >= 1.2)
+		AC_SUBST(speexdsp_CFLAGS)
+		AC_SUBST(speexdsp_LIBS)
+		AC_DEFINE(HAVE_SPEEXDSP, 1, [have speexdsp])
+	fi
 else
-	AC_DEFINE(HAVE_SPEEXDSP, 0, [have speexdsp])
+	echo "warning: pkg-config missing; cannot check optional dependencies"
 fi
 
 # Checks for typedefs, structures, and compiler characteristics.

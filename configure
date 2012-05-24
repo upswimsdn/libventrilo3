@@ -618,10 +618,11 @@ LTLIBOBJS
 LIBOBJS
 speexdsp_LIBS
 speexdsp_CFLAGS
-celt_LIBS
-celt_CFLAGS
+opus_LIBS
+opus_CFLAGS
 speex_LIBS
 speex_CFLAGS
+HAVE_PKG_CONFIG
 PKG_CONFIG_LIBDIR
 PKG_CONFIG_PATH
 PKG_CONFIG
@@ -755,7 +756,7 @@ with_sysroot
 enable_libtool_lock
 enable_gsm
 enable_speex
-enable_celt
+enable_opus
 enable_speexdsp
 '
       ac_precious_vars='build_alias
@@ -772,8 +773,8 @@ PKG_CONFIG_PATH
 PKG_CONFIG_LIBDIR
 speex_CFLAGS
 speex_LIBS
-celt_CFLAGS
-celt_LIBS
+opus_CFLAGS
+opus_LIBS
 speexdsp_CFLAGS
 speexdsp_LIBS'
 
@@ -1407,7 +1408,7 @@ Optional Features:
   --disable-libtool-lock  avoid locking (might break parallel builds)
   --disable-gsm           disable GSM codec support
   --disable-speex         disable Speex codec support
-  --disable-celt          disable CELT codec support
+  --disable-opus          disable Opus codec support
   --disable-speexdsp      disable Speex resampler support
 
 Optional Packages:
@@ -1436,8 +1437,8 @@ Some influential environment variables:
   speex_CFLAGS
               C compiler flags for speex, overriding pkg-config
   speex_LIBS  linker flags for speex, overriding pkg-config
-  celt_CFLAGS C compiler flags for celt, overriding pkg-config
-  celt_LIBS   linker flags for celt, overriding pkg-config
+  opus_CFLAGS C compiler flags for opus, overriding pkg-config
+  opus_LIBS   linker flags for opus, overriding pkg-config
   speexdsp_CFLAGS
               C compiler flags for speexdsp, overriding pkg-config
   speexdsp_LIBS
@@ -12024,9 +12025,9 @@ if test "${enable_speex+set}" = set; then :
   enableval=$enable_speex; disable_speex=yes
 fi
 
-# Check whether --enable-celt was given.
-if test "${enable_celt+set}" = set; then :
-  enableval=$enable_celt; disable_celt=yes
+# Check whether --enable-opus was given.
+if test "${enable_opus+set}" = set; then :
+  enableval=$enable_opus; disable_opus=yes
 fi
 
 # Check whether --enable-speexdsp was given.
@@ -12035,7 +12036,8 @@ if test "${enable_speexdsp+set}" = set; then :
 fi
 
 
-if test "$enable_gsm" != "no" ; then
+# Checks for header files.
+if test "$enable_gsm" != "no"; then
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for gsm_create in -lgsm" >&5
 $as_echo_n "checking for gsm_create in -lgsm... " >&6; }
 if ${ac_cv_lib_gsm_gsm_create+:} false; then :
@@ -12115,14 +12117,8 @@ fi
 
 $as_echo "#define HAVE_GSM 1" >>confdefs.h
 
-else
-
-$as_echo "#define HAVE_GSM 0" >>confdefs.h
-
 fi
 
-# Checks for header files.
-if test "$enable_speex" != "no" ; then
 
 
 
@@ -12243,6 +12239,45 @@ $as_echo "no" >&6; }
 		PKG_CONFIG=""
 	fi
 fi
+# Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_HAVE_PKG_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAVE_PKG_CONFIG"; then
+  ac_cv_prog_HAVE_PKG_CONFIG="$HAVE_PKG_CONFIG" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_HAVE_PKG_CONFIG="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+HAVE_PKG_CONFIG=$ac_cv_prog_HAVE_PKG_CONFIG
+if test -n "$HAVE_PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAVE_PKG_CONFIG" >&5
+$as_echo "$HAVE_PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+if test "x$HAVE_PKG_CONFIG" = "xyes"; then
+	if test "$enable_speex" != "no"; then
 
 pkg_failed=no
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for speex" >&5
@@ -12339,28 +12374,24 @@ fi
 
 $as_echo "#define HAVE_SPEEX 1" >>confdefs.h
 
-else
+	fi
 
-$as_echo "#define HAVE_SPEEX 0" >>confdefs.h
-
-fi
-
-if test "$enable_celt" != "no" ; then
+	if test "$enable_opus" != "no"; then
 
 pkg_failed=no
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for celt" >&5
-$as_echo_n "checking for celt... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for opus" >&5
+$as_echo_n "checking for opus... " >&6; }
 
-if test -n "$celt_CFLAGS"; then
-    pkg_cv_celt_CFLAGS="$celt_CFLAGS"
+if test -n "$opus_CFLAGS"; then
+    pkg_cv_opus_CFLAGS="$opus_CFLAGS"
  elif test -n "$PKG_CONFIG"; then
     if test -n "$PKG_CONFIG" && \
-    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"celt = 0.7.1\""; } >&5
-  ($PKG_CONFIG --exists --print-errors "celt = 0.7.1") 2>&5
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"opus >= 0.9.11\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "opus >= 0.9.11") 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
   test $ac_status = 0; }; then
-  pkg_cv_celt_CFLAGS=`$PKG_CONFIG --cflags "celt = 0.7.1" 2>/dev/null`
+  pkg_cv_opus_CFLAGS=`$PKG_CONFIG --cflags "opus >= 0.9.11" 2>/dev/null`
 		      test "x$?" != "x0" && pkg_failed=yes
 else
   pkg_failed=yes
@@ -12368,16 +12399,16 @@ fi
  else
     pkg_failed=untried
 fi
-if test -n "$celt_LIBS"; then
-    pkg_cv_celt_LIBS="$celt_LIBS"
+if test -n "$opus_LIBS"; then
+    pkg_cv_opus_LIBS="$opus_LIBS"
  elif test -n "$PKG_CONFIG"; then
     if test -n "$PKG_CONFIG" && \
-    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"celt = 0.7.1\""; } >&5
-  ($PKG_CONFIG --exists --print-errors "celt = 0.7.1") 2>&5
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"opus >= 0.9.11\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "opus >= 0.9.11") 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
   test $ac_status = 0; }; then
-  pkg_cv_celt_LIBS=`$PKG_CONFIG --libs "celt = 0.7.1" 2>/dev/null`
+  pkg_cv_opus_LIBS=`$PKG_CONFIG --libs "opus >= 0.9.11" 2>/dev/null`
 		      test "x$?" != "x0" && pkg_failed=yes
 else
   pkg_failed=yes
@@ -12398,22 +12429,22 @@ else
         _pkg_short_errors_supported=no
 fi
         if test $_pkg_short_errors_supported = yes; then
-	        celt_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "celt = 0.7.1" 2>&1`
+	        opus_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "opus >= 0.9.11" 2>&1`
         else
-	        celt_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "celt = 0.7.1" 2>&1`
+	        opus_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "opus >= 0.9.11" 2>&1`
         fi
 	# Put the nasty error message in config.log where it belongs
-	echo "$celt_PKG_ERRORS" >&5
+	echo "$opus_PKG_ERRORS" >&5
 
-	as_fn_error $? "Package requirements (celt = 0.7.1) were not met:
+	as_fn_error $? "Package requirements (opus >= 0.9.11) were not met:
 
-$celt_PKG_ERRORS
+$opus_PKG_ERRORS
 
 Consider adjusting the PKG_CONFIG_PATH environment variable if you
 installed software in a non-standard prefix.
 
-Alternatively, you may set the environment variables celt_CFLAGS
-and celt_LIBS to avoid the need to call pkg-config.
+Alternatively, you may set the environment variables opus_CFLAGS
+and opus_LIBS to avoid the need to call pkg-config.
 See the pkg-config man page for more details." "$LINENO" 5
 elif test $pkg_failed = untried; then
      	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
@@ -12424,15 +12455,15 @@ as_fn_error $? "The pkg-config script could not be found or is too old.  Make su
 is in your PATH or set the PKG_CONFIG environment variable to the full
 path to pkg-config.
 
-Alternatively, you may set the environment variables celt_CFLAGS
-and celt_LIBS to avoid the need to call pkg-config.
+Alternatively, you may set the environment variables opus_CFLAGS
+and opus_LIBS to avoid the need to call pkg-config.
 See the pkg-config man page for more details.
 
 To get pkg-config, see <http://pkg-config.freedesktop.org/>.
 See \`config.log' for more details" "$LINENO" 5; }
 else
-	celt_CFLAGS=$pkg_cv_celt_CFLAGS
-	celt_LIBS=$pkg_cv_celt_LIBS
+	opus_CFLAGS=$pkg_cv_opus_CFLAGS
+	opus_LIBS=$pkg_cv_opus_LIBS
         { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
 
@@ -12440,15 +12471,11 @@ fi
 
 
 
-$as_echo "#define HAVE_CELT 1" >>confdefs.h
+$as_echo "#define HAVE_OPUS 1" >>confdefs.h
 
-else
+	fi
 
-$as_echo "#define HAVE_CELT 0" >>confdefs.h
-
-fi
-
-if test "$enable_speexdsp" != "no" ; then
+	if test "$enable_speexdsp" != "no"; then
 
 pkg_failed=no
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for speexdsp" >&5
@@ -12545,10 +12572,9 @@ fi
 
 $as_echo "#define HAVE_SPEEXDSP 1" >>confdefs.h
 
+	fi
 else
-
-$as_echo "#define HAVE_SPEEXDSP 0" >>confdefs.h
-
+	echo "warning: pkg-config missing; cannot check optional dependencies"
 fi
 
 # Checks for typedefs, structures, and compiler characteristics.

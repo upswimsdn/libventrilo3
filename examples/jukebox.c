@@ -74,14 +74,7 @@
 
 #include <mpg123.h>
 
-#ifndef HAVE_VORBIS
-# define HAVE_VORBIS 0
-#endif
-#ifndef HAVE_FLAC
-# define HAVE_FLAC 0
-#endif
-
-#if HAVE_VORBIS || HAVE_FLAC
+#if defined(HAVE_VORBIS) || defined(HAVE_FLAC)
 static const char vorbis_artist[] = "ARTIST=";
 static const char vorbis_title[] = "TITLE=";
 static const char vorbis_album[] = "ALBUM=";
@@ -94,14 +87,14 @@ typedef struct {
 pcm_data_t pcmd;
 #endif
 
-#if !HAVE_VORBIS
+#ifndef HAVE_VORBIS
 # warning "Vorbis support not enabled."
 #else
 # warning "Vorbis support enabled."
 # include <vorbis/vorbisfile.h>
 #endif
 
-#if !HAVE_FLAC
+#ifndef HAVE_FLAC
 # warning "FLAC support not enabled."
 #else
 # warning "FLAC support enabled."
@@ -240,7 +233,7 @@ void interrupt(int signum) {
 }
 
 void usage(char *argv[]) {
-    fprintf(stderr, "usage: %s -h hostname:port -u username [-p password] [-c channelid] [-v volume_multipler] [-s disable stereo for celt] [-n don't shuffle] /path/to/music\n", argv[0]);
+    fprintf(stderr, "usage: %s -h hostname:port -u username [-p password] [-c channelid] [-v volume_multipler] [-s disable stereo for opus] [-n don't shuffle] /path/to/music\n", argv[0]);
     exit(EXIT_FAILURE);
 }
 
@@ -298,8 +291,8 @@ void *jukebox_player(void *connptr) {
                 case V3_EVENT_CHAN_LIST:
                     if (!conninfo->channelid) {
                         if (!chantree) {
-                            chantree = malloc(sizeof(channel_node));
-                            memset(chantree, 0, sizeof(channel_node));
+                            chantree = malloc(sizeof(*chantree));
+                            memset(chantree, 0, sizeof(*chantree));
                             strcpy(chantree->name, "(Lobby)");
                             chantree->id = 0;
                             chantree->childcount = 0;
@@ -677,10 +670,10 @@ void scan_media_path(char *path) {
         } else {
             cptr = namebuf + strlen(namebuf);
             if (!strcasecmp(cptr-4, ".mp3")
-#if HAVE_VORBIS
+#ifdef HAVE_VORBIS
             || !strcasecmp(cptr-4, ".ogg")
 #endif
-#if HAVE_FLAC
+#ifdef HAVE_FLAC
             || !strcasecmp(cptr-5, ".flac")
 #endif
             ) {
@@ -688,10 +681,10 @@ void scan_media_path(char *path) {
                 musiclist[musicfile_count] = malloc(sizeof(musicfile));
                 memset(musiclist[musicfile_count], 0, sizeof(musicfile));
                 musiclist[musicfile_count]->path = strdup(namebuf);
-#if HAVE_VORBIS
+#ifdef HAVE_VORBIS
                 musiclist[musicfile_count]->vorbis = !strcasecmp(cptr-4, ".ogg");
 #endif
-#if HAVE_FLAC
+#ifdef HAVE_FLAC
                 musiclist[musicfile_count]->flac = !strcasecmp(cptr-5, ".flac");
 #endif
                 /*
@@ -806,7 +799,7 @@ char *id3strdup(mpg123_string *inlines) {
     return NULL;
 }
 
-#if HAVE_FLAC
+#ifdef HAVE_FLAC
 flac_dec_write
 flac_write(const flac_dec *dec, const flac_frame_t *frame, const flac_int32_t *const buf[], void *data) {
     (void)data;
@@ -853,7 +846,7 @@ void *open_file(musicfile *musicfile, const v3_codec *codec) {
     mpg123_pars *mp;
     int result;
 
-#if HAVE_VORBIS
+#ifdef HAVE_VORBIS
     if (musicfile->vorbis) {
         vorbis_info *vi;
         vorbis_comment *vc;
@@ -902,7 +895,7 @@ void *open_file(musicfile *musicfile, const v3_codec *codec) {
         return musicfile;
     }
 #endif
-#if HAVE_FLAC
+#ifdef HAVE_FLAC
     if (musicfile->flac) {
         flac_metadata_t *tags;
         void *comment;
@@ -1003,7 +996,7 @@ void *open_file(musicfile *musicfile, const v3_codec *codec) {
 }
 
 int get_pcm_frame(musicfile *musicfile, int channels, int16_t *buf, int *pcmread) {
-    unsigned char readbuffer[*pcmread*channels];
+    unsigned char readbuffer[65536];
     int16_t *readptr;
     size_t numdecoded;
     int err;
@@ -1012,7 +1005,7 @@ int get_pcm_frame(musicfile *musicfile, int channels, int16_t *buf, int *pcmread
     if (musicfile->channels == 1) {
         channels = 1;
     }
-#if HAVE_VORBIS
+#ifdef HAVE_VORBIS
     if (musicfile->vorbis) {
         int ret;
 
@@ -1043,7 +1036,7 @@ int get_pcm_frame(musicfile *musicfile, int channels, int16_t *buf, int *pcmread
         return true;
     }
 #endif
-#if HAVE_FLAC
+#ifdef HAVE_FLAC
     if (musicfile->flac) {
         pcmd.len = 0;
         while (flac_dec_get_state(musicfile->mh) != FLAC_DEC_END_OF_STREAM && flac_dec_process_single(musicfile->mh)) {
@@ -1075,7 +1068,7 @@ int get_pcm_frame(musicfile *musicfile, int channels, int16_t *buf, int *pcmread
             return false;
         }
         readptr = (int16_t *)readbuffer;
-        if (channels == 1) { // no channels to mix; this is for celt stereo mode
+        if (channels == 1) { // no channels to mix; this is for opus stereo mode
             memcpy(buf, readbuffer, *pcmread);
         } else for (ctr = 0; ctr < *pcmread/2; ++ctr) {
             buf[ctr] = (readptr[ctr*2] + readptr[ctr*2+1]) / 2;
@@ -1089,7 +1082,7 @@ void close_file(musicfile *musicfile) {
     if (!musicfile || !musicfile->mh) {
         return;
     }
-#if HAVE_VORBIS
+#ifdef HAVE_VORBIS
     if (musicfile->vorbis) {
         ov_clear(musicfile->mh);
         free(musicfile->mh);
@@ -1097,7 +1090,7 @@ void close_file(musicfile *musicfile) {
         return;
     }
 #endif
-#if HAVE_FLAC
+#ifdef HAVE_FLAC
     if (musicfile->flac) {
         flac_dec_destroy(musicfile->mh);
         musicfile->mh = NULL;
@@ -1258,7 +1251,7 @@ main(int argc, char **argv) {
         fprintf(stderr, "not shuffling musiclist\n");
     }
     if (!disable_stereo) {
-        fprintf(stderr, "will use 2 channels for the CELT codec\n");
+        fprintf(stderr, "will use 2 channels for the Opus codec (replacing channel codecs truespeech and lernout & hauspie)\n");
     }
     FAIL32;
     if (debug >= 2) {

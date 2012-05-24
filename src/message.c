@@ -703,7 +703,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     }
                 }
                 if (*v3c->luser.comment || *v3c->luser.url || *v3c->luser.integration) {
-                    memset(&u, 0, sizeof(v3_user));
+                    memset(&u, 0, sizeof(u));
                     u.id = v3c->luser.id;
                     u.flags = 1 << 8;
                     _v3_strncpy(u.comment, v3c->luser.comment, sizeof(u.comment) - 1);
@@ -728,7 +728,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
             _v3_mutex_lock(v3h);
 
             for (ptr = m->data + sizeof(_v3_msg_rank_list), ctr = 0; ctr < mc->count; ++ctr) {
-                memset(&r, 0, sizeof(v3_rank));
+                memset(&r, 0, sizeof(r));
                 ptr = _v3_msg_rank_get(v3h, ptr, &r);
                 _v3_debug(v3h, V3_DBG_MESSAGE, "rank: id: %u | level: %u | name: '%s' | description: '%s'",
                         r.id,
@@ -1136,7 +1136,6 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     ptr = _v3_msg_uint16_get(v3h, m->data + sizeof(_v3_msg_audio), NULL, 0, NULL);
                     ptr = _v3_msg_uint16_get(v3h, ptr, NULL, 0, NULL);
                     ev.data.pcm.length = sizeof(ev.data.pcm.sample);
-                    ev.data.pcm.channels = (mc->pcmlen - 2000 == 2) ? 2 : 1;
                     if (_v3_audio_decode(
                             v3h,
                             mc->index,
@@ -1147,7 +1146,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                             ev.data.pcm.sample,
                             &ev.data.pcm.length,
                             &ev.data.pcm.rate,
-                            ev.data.pcm.channels) == V3_OK) {
+                            &ev.data.pcm.channels) == V3_OK) {
                         _v3_audio_amplify(
                                 v3h,
                                 (void *)ev.data.pcm.sample,
@@ -1238,7 +1237,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     }
                     name[sizeof(name) - 1] = 0;
                     strncpy(name, u.name, sizeof(name) - 1);
-                    memset(&u, 0, sizeof(v3_user));
+                    memset(&u, 0, sizeof(u));
                     strncpy(u.name, name, sizeof(u.name) - 1);
                     u.id = mc->phantom;
                     u.channel = mc->channel;
@@ -1287,7 +1286,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
             _v3_mutex_lock(v3h);
 
             for (ptr = m->data + sizeof(_v3_msg_user_list), ctr = 0; ctr < mc->count; ++ctr) {
-                memset(&u, 0, sizeof(v3_user));
+                memset(&u, 0, sizeof(u));
                 ptr = _v3_msg_user_get(v3h, ptr, &u);
                 _v3_debug(v3h, V3_DBG_MESSAGE, "user: id: %u | channel: %u | flags: %u | rank: %u",
                         u.id,
@@ -1386,7 +1385,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
             _v3_mutex_lock(v3h);
 
             for (ptr = m->data + sizeof(_v3_msg_list_chan), ctr = 0; ctr < mc->count; ++ctr) {
-                memset(&c, 0, sizeof(v3_channel));
+                memset(&c, 0, sizeof(c));
                 ptr = _v3_msg_channel_get(v3h, ptr, &c);
                 _v3_debug(v3h, V3_DBG_MESSAGE, "channel: id: %u | name: '%s' | phonetic: '%s' | comment: '%s'",
                         c.id,

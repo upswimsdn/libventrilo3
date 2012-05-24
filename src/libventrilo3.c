@@ -52,18 +52,18 @@
 # include <arpa/inet.h>
 #endif
 
-#if HAVE_GSM_H
+#ifdef HAVE_GSM_H
 # include <gsm.h>
-#elif HAVE_GSM_GSM_H
+#elif defined(HAVE_GSM_GSM_H)
 # include <gsm/gsm.h>
 #endif
-#if HAVE_CELT
-# include <celt/celt.h>
+#ifdef HAVE_OPUS
+# include <opus/opus.h>
 #endif
-#if HAVE_SPEEX
+#ifdef HAVE_SPEEX
 # include <speex/speex.h>
 #endif
-#if HAVE_SPEEXDSP
+#ifdef HAVE_SPEEXDSP
 # include <speex/speex_resampler.h>
 #endif
 
@@ -195,7 +195,7 @@ v3_destroy(v3_handle v3h) {
     v3c = _v3_handles[v3h];
 
     _v3_close(v3h);
-#if HAVE_SPEEXDSP
+#ifdef HAVE_SPEEXDSP
     if (v3c->resampler.state) {
         speex_resampler_destroy(v3c->resampler.state);
     }

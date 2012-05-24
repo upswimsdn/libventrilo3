@@ -31,26 +31,24 @@ _v3_coder_destroy(v3_handle v3h, v3_coder *coder) {
     if (coder->state) {
         _v3_debug(v3h, V3_DBG_MEMORY, "releasing %scoder state", (coder->encoder) ? "en" : "de");
         switch (coder->index) {
-#if HAVE_GSM
+#ifdef HAVE_GSM
           case 0:
             gsm_destroy(coder->state);
             _v3_debug(v3h, V3_DBG_MEMORY, "released gsm state");
             break;
 #endif
-#if HAVE_CELT
+#ifdef HAVE_OPUS
           case 1:
           case 2:
             if (coder->encoder) {
-                celt_encoder_destroy(coder->state);
+                opus_encoder_destroy(coder->state);
             } else {
-                celt_decoder_destroy(coder->state);
+                opus_decoder_destroy(coder->state);
             }
-            celt_mode_destroy(coder->mode);
-            coder->mode = NULL;
-            _v3_debug(v3h, V3_DBG_MEMORY, "released celt state");
+            _v3_debug(v3h, V3_DBG_MEMORY, "released opus state");
             break;
 #endif
-#if HAVE_SPEEX
+#ifdef HAVE_SPEEX
           case 3:
             if (coder->encoder) {
                 speex_encoder_destroy(coder->state);
@@ -99,17 +97,15 @@ int
 _v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, uint32_t pcmlen) {
     _v3_connection *v3c;
     const v3_codec *codec;
-    uint8_t pcmbuf[1 << 16];
+    uint8_t pcmbuf[65536];
     uint32_t pcmbuflen = 0;
-    uint8_t databuf[1 << 11];
+    uint8_t databuf[2048];
     uint32_t databuflen = 0;
     uint32_t framesize;
     uint8_t *ptr;
     uint32_t *len;
     uint32_t rd;
     float *volume[1];
-    uint16_t framecount;
-    uint8_t celtfragsize;
     int ret = V3_OK;
 
     _v3_enter(v3h, __func__);
@@ -125,7 +121,7 @@ _v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, 
         return V3_FAILURE;
     }
     if (rate != codec->rate) {
-#if HAVE_SPEEXDSP
+#ifdef HAVE_SPEEXDSP
         int err = 0;
         uint32_t in_len = pcmlen;
         uint32_t out_len = sizeof(pcmbuf);
@@ -172,21 +168,23 @@ _v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, 
         pcmbuflen = pcmlen;
     }
     if (channels == 2) {
-        int16_t *sample = (int16_t *)pcmbuf;
-        uint32_t ctr;
-
         switch (codec->index) {
-#if HAVE_CELT
+#ifdef HAVE_OPUS
           case 1:
           case 2:
             break;
 #endif
           default:
-            pcmbuflen /= 2;
-            for (ctr = 0; ctr < pcmbuflen; ++ctr) {
-                sample[ctr] = sample[ctr*2] / 2 + sample[ctr*2+1] / 2;
+            {
+                int16_t *sample = (int16_t *)pcmbuf;
+                uint32_t ctr;
+
+                pcmbuflen /= 2;
+                for (ctr = 0; ctr < pcmbuflen; ++ctr) {
+                    sample[ctr] = sample[ctr*2] / 2 + sample[ctr*2+1] / 2;
+                }
+                channels = 1;
             }
-            channels = 1;
             break;
         }
     }
@@ -196,8 +194,6 @@ _v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, 
         *volume = &v3c->luser.volume;
         _v3_audio_amplify(v3h, (void *)ptr, rd, volume, sizeof(volume) / sizeof(*volume));
         databuflen = sizeof(databuf);
-        framecount = 0;
-        celtfragsize = 0;
         if ((ret = _v3_audio_encode(
                 v3h,
                 ptr,
@@ -207,49 +203,15 @@ _v3_audio_send(v3_handle v3h, uint32_t rate, uint8_t channels, const void *pcm, 
                 &v3c->encoder,
                 databuf,
                 &databuflen,
-                channels,
-                &framecount,
-                &celtfragsize)) == V3_OK) {
-            switch (codec->index) {
-#if HAVE_CELT
-              case 1:
-              case 2:
-                {
-                    uint8_t *celtdataptr = databuf;
-                    uint16_t pktlen = (codec->index == 1) ? 198 : 108;
-                    uint8_t pktframes = pktlen / celtfragsize;
-
-                    pktlen = pktframes * celtfragsize;
-                    while (framecount && pktframes) {
-                        if (framecount < pktframes) {
-                            pktframes = framecount;
-                            pktlen = pktframes * celtfragsize;
-                        }
-                        ret = _v3_msg_audio_put(
-                                v3h,
-                                V3_AUDIO_DATA,
-                                codec->index,
-                                codec->format,
-                                2000 + channels,
-                                celtdataptr,
-                                pktlen);
-                        celtdataptr += pktlen;
-                        framecount -= pktframes;
-                    }
-                }
-                break;
-#endif
-              default:
-                ret = _v3_msg_audio_put(
-                        v3h,
-                        V3_AUDIO_DATA,
-                        codec->index,
-                        codec->format,
-                        pcmlen,
-                        databuf,
-                        databuflen);
-                break;
-            }
+                channels)) == V3_OK) {
+            ret = _v3_msg_audio_put(
+                    v3h,
+                    V3_AUDIO_DATA,
+                    codec->index,
+                    codec->format,
+                    pcmlen,
+                    databuf,
+                    databuflen);
         }
         memmove(ptr, ptr + rd, (v3c->pcmqueued ? sizeof(v3c->pcmq) : sizeof(pcmbuf)) - rd);
         *len -= rd;
@@ -278,11 +240,8 @@ _v3_audio_encode(
         uint8_t *data,
         uint32_t *datalen,
         /* optional args */
-        uint8_t channels,
-        uint16_t *framecount,
-        uint8_t *celtfragsize) {
+        uint8_t channels) {
     uint32_t maxdatalen;
-    size_t ctr;
     int ret = V3_OK;
 
     _v3_enter(v3h, __func__);
@@ -300,11 +259,12 @@ _v3_audio_encode(
         _v3_coder_destroy(v3h, coder);
     }
     switch (index) {
-#if HAVE_GSM
+#ifdef HAVE_GSM
       case 0:
         {
             const v3_codec *codec = v3_codec_get(index, format);
             int opt = 1;
+            size_t ctr;
 
             _v3_debug(v3h, V3_DBG_INFO, "encoding %u bytes of pcm to gsm @ %u", pcmlen, codec->rate);
             if (!coder->state) {
@@ -325,55 +285,46 @@ _v3_audio_encode(
                 data     += 65;
                 *datalen += 65;
             }
-            if (framecount) {
-                *framecount = pcmlen / codec->framesize;
-            }
         }
         break;
 #endif
-#if HAVE_CELT
+#ifdef HAVE_OPUS
       case 1:
       case 2:
         {
-            static const int prediction = 2;
-            static const int complexity = 10;
             const v3_codec *codec = v3_codec_get(index, format);
-            uint8_t fragsize = (celtfragsize && *celtfragsize) ? *celtfragsize : (index == 1 ? 60 : 54);
-            uint8_t framesize = fragsize - 1;
+            int err;
 
-            _v3_debug(v3h, V3_DBG_INFO, "encoding %u bytes of pcm to celt @ %u", pcmlen, codec->rate);
+            _v3_debug(v3h, V3_DBG_INFO, "encoding %u bytes of pcm to opus @ %u", pcmlen, codec->rate);
             if (!coder->state || channels != coder->channels) {
                 if (coder->state) {
-                    celt_encoder_destroy(coder->state);
+                    opus_encoder_destroy(coder->state);
                     coder->state = NULL;
-                    _v3_debug(v3h, V3_DBG_MEMORY, "released celt state");
+                    _v3_debug(v3h, V3_DBG_MEMORY, "released opus state");
                 }
-                if (coder->mode) {
-                    celt_mode_destroy(coder->mode);
-                    coder->mode = NULL;
-                    _v3_debug(v3h, V3_DBG_MEMORY, "released celt mode");
-                }
-                if (!(coder->mode = celt_mode_create(44100, codec->framesize / sizeof(int16_t), NULL))) {
-                    _v3_debug(v3h, V3_DBG_INFO, "failed to create celt mode");
+                if (!(coder->state = opus_encoder_create(codec->rate, channels, OPUS_APPLICATION_AUDIO, &err))) {
+                    _v3_debug(v3h, V3_DBG_INFO, "failed to create opus encoder: %s", opus_strerror(err));
                     ret = V3_FAILURE;
                     break;
                 }
-                if (!(coder->state = celt_encoder_create(coder->mode, channels, NULL))) {
-                    if (coder->mode) {
-                        celt_mode_destroy(coder->mode);
-                        coder->mode = NULL;
-                    }
-                    _v3_debug(v3h, V3_DBG_INFO, "failed to create celt decoder");
+                if ((err = opus_encoder_ctl(coder->state, OPUS_SET_COMPLEXITY(10))) != OPUS_OK) {
+                    _v3_debug(v3h, V3_DBG_INFO, "opus_encoder_ctl: OPUS_SET_COMPLEXITY: %s", opus_strerror(err));
+                    opus_encoder_destroy(coder->state);
+                    coder->state = NULL;
                     ret = V3_FAILURE;
                     break;
                 }
-                if (celt_encoder_ctl(coder->state, CELT_SET_PREDICTION(prediction)) != CELT_OK ||
-                    celt_encoder_ctl(coder->state, CELT_SET_COMPLEXITY(complexity)) != CELT_OK) {
-                    _v3_debug(v3h, V3_DBG_INFO, "celt_encoder_ctl: prediction request failed or complexity 0-10 is only supported");
-                    celt_encoder_destroy(coder->state);
+                if ((err = opus_encoder_ctl(coder->state, OPUS_SET_VBR(0))) != OPUS_OK) {
+                    _v3_debug(v3h, V3_DBG_INFO, "opus_encoder_ctl: OPUS_SET_VBR: %s", opus_strerror(err));
+                    opus_encoder_destroy(coder->state);
                     coder->state = NULL;
-                    celt_mode_destroy(coder->mode);
-                    coder->mode = NULL;
+                    ret = V3_FAILURE;
+                    break;
+                }
+                if ((err = opus_encoder_ctl(coder->state, OPUS_SET_BITRATE(((index == 1) ? 79 : 43) * 1000))) != OPUS_OK) {
+                    _v3_debug(v3h, V3_DBG_INFO, "opus_encoder_ctl: OPUS_SET_BITRATE: %s", opus_strerror(err));
+                    opus_encoder_destroy(coder->state);
+                    coder->state = NULL;
                     ret = V3_FAILURE;
                     break;
                 }
@@ -382,29 +333,22 @@ _v3_audio_encode(
                 coder->channels = channels;
                 coder->encoder = true;
             }
-            for (ctr = 0; ctr < pcmlen / (codec->framesize * channels) && *datalen + fragsize <= maxdatalen; ++ctr) {
-                *data++ = framesize;
-                celt_encode(coder->state, (void *)pcm, NULL, (void *)data, framesize);
-                pcm      += codec->framesize * channels;
-                data     += framesize;
-                *datalen += fragsize;
+            maxdatalen = (maxdatalen <= ((index == 1) ? 198 : 108)) ? maxdatalen : ((index == 1) ? 198 : 108);
+            if ((err = opus_encode(coder->state, (void *)pcm, codec->framesize / sizeof(int16_t), (void *)data, maxdatalen)) <= 0) {
+                _v3_debug(v3h, V3_DBG_INFO, "failed to encode opus packet");
             }
-            if (framecount) {
-                *framecount = pcmlen / (codec->framesize * channels);
-            }
-            if (celtfragsize) {
-                *celtfragsize = fragsize;
-            }
+            *datalen = err;
         }
         break;
 #endif
-#if HAVE_SPEEX
+#ifdef HAVE_SPEEX
       case 3:
         {
             static const uint16_t maxspxbuf = 200;
             const v3_codec *codec = v3_codec_get(index, format);
             uint16_t framesize;
             SpeexBits bits;
+            size_t ctr;
 
             _v3_debug(v3h, V3_DBG_INFO, "encoding %u bytes of pcm to speex @ %u", pcmlen, codec->rate);
             if (!coder->state) {
@@ -446,13 +390,11 @@ _v3_audio_encode(
                 *datalen += sizeof(uint16_t) + framesize;
             }
             speex_bits_destroy(&bits);
-            if (framecount) {
-                *framecount = pcmlen / codec->framesize;
-            }
         }
         break;
 #endif
       default:
+        (void)maxdatalen;
         _v3_debug(v3h, V3_DBG_INFO, "unsupported codec: index: %i | format: %i", index, format);
         ret = V3_FAILURE;
         break;
@@ -476,7 +418,7 @@ _v3_audio_decode(
         uint32_t *pcmlen,
         /* optional args */
         uint32_t *rate,
-        uint8_t channels) {
+        uint8_t *channels) {
     uint32_t maxpcmlen;
     int ret = V3_OK;
 
@@ -489,13 +431,15 @@ _v3_audio_decode(
 
     maxpcmlen = *pcmlen;
     *pcmlen = 0;
-    channels = (channels == 2) ? 2 : 1;
+    if (channels) {
+        *channels = 1;
+    }
 
     if (coder->state && (coder->index != index || coder->format != format)) {
         _v3_coder_destroy(v3h, coder);
     }
     switch (index) {
-#if HAVE_GSM
+#ifdef HAVE_GSM
       case 0:
         {
             const v3_codec *codec = v3_codec_get(index, format);
@@ -517,7 +461,7 @@ _v3_audio_decode(
             while ((datalen -= 65) >= 0 && *pcmlen + codec->framesize <= maxpcmlen) {
                 if (gsm_decode(coder->state, (void *)data, (void *)pcm) ||
                     gsm_decode(coder->state, (void *)data+33, (void *)pcm+(codec->framesize/2))) {
-                    _v3_debug(v3h, V3_DBG_INFO, "failed to decode gsm frame");
+                    _v3_debug(v3h, V3_DBG_INFO, "failed to decode gsm packet");
                 }
                 data    += 65;
                 pcm     += codec->framesize;
@@ -529,67 +473,39 @@ _v3_audio_decode(
         }
         break;
 #endif
-#if HAVE_CELT
+#ifdef HAVE_OPUS
       case 1:
       case 2:
         {
             const v3_codec *codec = v3_codec_get(index, format);
-            uint8_t framesize;
+            int tmp;
 
-            _v3_debug(v3h, V3_DBG_INFO, "decoding %i bytes of celt to pcm @ %u", datalen, codec->rate);
-            if (!coder->state || channels != coder->channels) {
-                if (coder->state) {
-                    celt_decoder_destroy(coder->state);
-                    coder->state = NULL;
-                    _v3_debug(v3h, V3_DBG_MEMORY, "released celt state");
-                }
-                if (coder->mode) {
-                    celt_mode_destroy(coder->mode);
-                    coder->mode = NULL;
-                    _v3_debug(v3h, V3_DBG_MEMORY, "released celt mode");
-                }
-                if (!(coder->mode = celt_mode_create(44100, codec->framesize / sizeof(int16_t), NULL))) {
-                    _v3_debug(v3h, V3_DBG_INFO, "failed to create celt mode");
+            _v3_debug(v3h, V3_DBG_INFO, "decoding %i bytes of opus to pcm @ %u", datalen, codec->rate);
+            if (!coder->state) {
+                if (!(coder->state = opus_decoder_create(codec->rate, 2, &tmp))) {
+                    _v3_debug(v3h, V3_DBG_INFO, "failed to create opus decoder: %s", opus_strerror(tmp));
                     ret = V3_FAILURE;
                     break;
                 }
-                if (!(coder->state = celt_decoder_create(coder->mode, channels, NULL))) {
-                    if (coder->mode) {
-                        celt_mode_destroy(coder->mode);
-                        coder->mode = NULL;
-                    }
-                    _v3_debug(v3h, V3_DBG_INFO, "failed to create celt decoder");
-                    ret = V3_FAILURE;
-                    break;
-                }
-                _v3_debug(v3h, V3_DBG_MEMORY, "initialized celt decoder state");
+                _v3_debug(v3h, V3_DBG_MEMORY, "initialized opus decoder state");
                 coder->index = index;
                 coder->format = format;
-                coder->channels = channels;
                 coder->encoder = false;
             }
-            while (datalen) {
-                framesize = *data++;
-                datalen -= framesize + 1;
-                if (!framesize || datalen < 0 || *pcmlen + codec->framesize * channels > maxpcmlen) {
-                    _v3_debug(v3h, V3_DBG_INFO, "received a malformed celt packet");
-                    ret = V3_MALFORM;
-                    break;
-                }
-                if (celt_decode(coder->state, (void *)data, framesize, (void *)pcm) != CELT_OK) {
-                    _v3_debug(v3h, V3_DBG_INFO, "failed to decode celt frame");
-                }
-                data    += framesize;
-                pcm     += codec->framesize * channels;
-                *pcmlen += codec->framesize * channels;
+            if ((tmp = opus_decode(coder->state, data, datalen, (void *)pcm, maxpcmlen / sizeof(int16_t), 0)) <= 0) {
+                _v3_debug(v3h, V3_DBG_INFO, "failed to decode opus packet");
             }
+            *pcmlen += tmp * sizeof(int16_t) * 2;
             if (rate) {
                 *rate = codec->rate;
+            }
+            if (channels) {
+                *channels = 2;
             }
         }
         break;
 #endif
-#if HAVE_SPEEX
+#ifdef HAVE_SPEEX
       case 3:
         {
             const v3_codec *codec = v3_codec_get(index, format);
@@ -651,6 +567,7 @@ _v3_audio_decode(
         break;
 #endif
       default:
+        (void)rate, (void)maxpcmlen;
         _v3_debug(v3h, V3_DBG_INFO, "unsupported codec: index: %i | format: %i", index, format);
         ret = V3_FAILURE;
         break;

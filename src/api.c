@@ -152,7 +152,7 @@ v3_luser_text(v3_handle v3h, const char *comment, const char *url, const char *i
 
     v3c = _v3_handles[v3h];
     if (v3c->logged_in) {
-        memset(&u, 0, sizeof(v3_user));
+        memset(&u, 0, sizeof(u));
         u.id = v3c->luser.id;
         u.flags = (silent) ? 1 << 8 : 0;
         _v3_strncpy(u.comment, comment, sizeof(u.comment) - 1);
@@ -306,7 +306,7 @@ v3_audio_stop(v3_handle v3h) {
     ret = _v3_msg_audio_put(v3h, V3_AUDIO_STOP, codec->index, codec->format, 0, NULL, 0);
 
     v3c->pcmqueued = 0;
-#if HAVE_SPEEXDSP
+#ifdef HAVE_SPEEXDSP
     if (v3c->resampler.state) {
         speex_resampler_destroy(v3c->resampler.state);
         v3c->resampler.state = NULL;

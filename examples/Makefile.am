@@ -17,7 +17,7 @@ dev:
 		connection.c \
 		../src/libventrilo3.o \
 		$(speex_LIBS) \
-		$(celt_LIBS) \
+		$(opus_LIBS) \
 		$(speexdsp_LIBS) \
 		$(LIBS) \
 		-lm
@@ -30,7 +30,7 @@ jukebox:
 		jukebox.c \
 		../src/libventrilo3.o \
 		$(speex_LIBS) \
-		$(celt_LIBS) \
+		$(opus_LIBS) \
 		$(speexdsp_LIBS) \
 		-lmpg123 \
 		`pkg-config --silence-errors --libs vorbisfile` \

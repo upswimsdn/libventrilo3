@@ -89,8 +89,7 @@ struct v3_coder {
     int16_t     index;
     int16_t     format;
     uint8_t     channels;
-    uint8_t     encoder;
-    void *      mode;
+    int         encoder;
     void *      state;
 };
 
