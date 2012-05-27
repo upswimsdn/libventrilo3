@@ -54,7 +54,7 @@
 void
 _v3_password(v3_handle v3h, const char *password, uint8_t *hash) {
     uint32_t crc, i, j, cnt, len;
-    uint8_t tmp[4] = { 0 };
+    uint8_t tmp[sizeof(crc)] = { 0 };
 
     _v3_enter(v3h, __func__);
 
@@ -64,7 +64,7 @@ _v3_password(v3_handle v3h, const char *password, uint8_t *hash) {
         for (j = 0, crc = 0; j < i + 1; ++j) {
             crc = _v3_hash_table[hash[j] ^ (crc & 0xff)] ^ (crc >> 8);
         }
-        *(uint32_t *)tmp = htonl(crc);
+        *(typeof(crc) *)tmp = htonl(crc);
         cnt += hash[i];
         while (crc && !tmp[cnt & 3]) {
             ++cnt;

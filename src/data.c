@@ -25,6 +25,7 @@
  */
 
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 
 #include "libventrilo3.h"
@@ -222,7 +223,7 @@ _v3_data_destroy(v3_handle v3h) {
 }
 
 void
-_v3_event_push(v3_handle v3h, v3_event *ev) {
+_v3_event_push(v3_handle v3h, const v3_event *ev) {
     _v3_connection *v3c;
     v3_event *last;
     int ctr;
@@ -234,12 +235,12 @@ _v3_event_push(v3_handle v3h, v3_event *ev) {
     pthread_mutex_lock(v3c->event_mutex);
 
     last = calloc(1, sizeof(*last));
-    memcpy(last, ev, sizeof(*last) - sizeof(last->next));
+    memcpy(last, ev, offsetof(typeof(*last), next));
     ev = last;
 
     for (last = v3c->eventq, ctr = 1; last && ++ctr && last->next; last = last->next);
 
-    *(v3_event **)((!v3c->eventq) ? &v3c->eventq : &last->next) = ev;
+    *(typeof(*ev) **)((!v3c->eventq) ? &v3c->eventq : &last->next) = ev;
     _v3_debug(v3h, V3_DBG_EVENT, "%i events in queue", ctr);
 
     pthread_cond_signal(v3c->event_cond);
@@ -266,7 +267,7 @@ _v3_event_pop(v3_handle v3h, int block, v3_event *ev) {
             return V3_FAILURE;
         }
     }
-    memcpy(ev, v3c->eventq, sizeof(*ev) - sizeof(ev->next));
+    memcpy(ev, v3c->eventq, offsetof(typeof(*ev), next));
     ev = v3c->eventq;
     v3c->eventq = ev->next;
     free(ev);

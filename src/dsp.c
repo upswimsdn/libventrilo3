@@ -239,7 +239,7 @@ _v3_audio_encode(
         /* pcm input */
         const uint8_t *pcm,
         uint32_t pcmlen,
-        /* encoded output */
+        /* payload output */
         int16_t index,
         int16_t format,
         v3_coder *coder,
@@ -413,7 +413,7 @@ _v3_audio_encode(
 int
 _v3_audio_decode(
         v3_handle v3h,
-        /* encoded input */
+        /* payload input */
         int16_t index,
         int16_t format,
         v3_coder *coder,

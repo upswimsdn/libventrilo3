@@ -334,7 +334,7 @@ char *      _v3_strncpy(char *dest, const char *src, size_t n);
 /* data.c */
 int         _v3_data(v3_handle v3h, int oper, int type, void *data, size_t n);
 void        _v3_data_destroy(v3_handle v3h);
-void        _v3_event_push(v3_handle v3h, v3_event *ev);
+void        _v3_event_push(v3_handle v3h, const v3_event *ev);
 void        _v3_event_clear(v3_handle v3h);
 
 /* dsp.c */
@@ -346,7 +346,7 @@ int         _v3_audio_encode(
                     /* pcm input */
                     const uint8_t *pcm,
                     uint32_t pcmlen,
-                    /* encoded output */
+                    /* payload output */
                     int16_t index,
                     int16_t format,
                     v3_coder *coder,
@@ -356,7 +356,7 @@ int         _v3_audio_encode(
                     uint8_t channels);
 int         _v3_audio_decode(
                     v3_handle v3h,
-                    /* encoded input */
+                    /* payload input */
                     int16_t index,
                     int16_t format,
                     v3_coder *coder,

@@ -26,6 +26,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <arpa/inet.h>
 
@@ -79,7 +80,7 @@ _v3_msg_string_get(v3_handle v3h, const void *src, char *dest, size_t n) {
 
     _v3_enter(v3h, __func__);
 
-    len = ntohs(*(uint16_t *)src);
+    len = ntohs(*(typeof(len) *)src);
     src += sizeof(len);
     memcpy(dest, src, (len > n) ? n : len);
     if (len < n) {
@@ -100,7 +101,7 @@ _v3_msg_string_put(v3_handle v3h, const char *src, size_t n, void **dest, size_t
     len = strlen(src);
     len = (len > n) ? n : len;
     *dest = realloc(*dest, size + sizeof(len) + len);
-    *(uint16_t *)(*dest + size) = htons(len);
+    *(typeof(len) *)(*dest + size) = htons(len);
     size += sizeof(len);
     memcpy(*dest + size, src, len);
     size += len;
@@ -116,13 +117,13 @@ _v3_msg_uint16_get(v3_handle v3h, const void *src, uint16_t *dest, size_t n, uin
 
     _v3_enter(v3h, __func__);
 
-    len = ntohs(*(uint16_t *)src);
+    len = ntohs(*(typeof(len) *)src);
     if (count) {
         *count = (len > n) ? n : len;
     }
     src += sizeof(len);
     for (ctr = 0; ctr < ((len > n) ? n : len); ++ctr) {
-        dest[ctr] = ntohs(*((uint16_t *)src + ctr));
+        dest[ctr] = ntohs(((uint16_t *)src)[ctr]);
     }
     src += len * sizeof(*dest);
 
@@ -137,12 +138,12 @@ _v3_msg_uint16_put(v3_handle v3h, const uint16_t *src, uint16_t count, void **de
     _v3_enter(v3h, __func__);
 
     *dest = realloc(*dest, size + sizeof(count) + sizeof(*src) * count);
-    *(uint16_t *)(*dest + size) = htons(count);
+    *(typeof(count) *)(*dest + size) = htons(count);
     size += sizeof(count);
     for (ctr = 0; ctr < count; ++ctr) {
-        *(uint16_t *)(*dest + size) = htons(src[ctr]);
-        size += sizeof(*src);
+        ((uint16_t *)(*dest + size))[ctr] = htons(src[ctr]);
     }
+    size += count * sizeof(*src);
 
     _v3_leave(v3h, __func__);
     return size;
@@ -150,11 +151,11 @@ _v3_msg_uint16_put(v3_handle v3h, const uint16_t *src, uint16_t count, void **de
 
 const void *
 _v3_msg_channel_get(v3_handle v3h, const void *src, v3_channel *c) {
-    int len;
+    size_t len;
 
     _v3_enter(v3h, __func__);
 
-    len = (void *)&c->_internal_ - (void *)c;
+    len = offsetof(typeof(*c), _message_);
     memcpy(c, src, len);
     src += len;
     src = _v3_msg_string_get(v3h, src, c->name, sizeof(c->name) - 1);
@@ -167,11 +168,11 @@ _v3_msg_channel_get(v3_handle v3h, const void *src, v3_channel *c) {
 
 size_t
 _v3_msg_channel_put(v3_handle v3h, const v3_channel *c, void **dest, size_t size, int skip) {
-    int len;
+    size_t len;
 
     _v3_enter(v3h, __func__);
 
-    len = (void *)&c->_internal_ - (void *)c;
+    len = offsetof(typeof(*c), _message_);
     *dest = realloc(*dest, size + len);
     memcpy(*dest + size, c, len);
     size += len;
@@ -187,11 +188,11 @@ _v3_msg_channel_put(v3_handle v3h, const v3_channel *c, void **dest, size_t size
 
 const void *
 _v3_msg_rank_get(v3_handle v3h, const void *src, v3_rank *r) {
-    int len;
+    size_t len;
 
     _v3_enter(v3h, __func__);
 
-    len = (void *)&r->_internal_ - (void *)r;
+    len = offsetof(typeof(*r), _message_);
     memcpy(r, src, len);
     src += len;
     src = _v3_msg_string_get(v3h, src, r->name, sizeof(r->name) - 1);
@@ -203,11 +204,11 @@ _v3_msg_rank_get(v3_handle v3h, const void *src, v3_rank *r) {
 
 const void *
 _v3_msg_user_get(v3_handle v3h, const void *src, v3_user *u) {
-    int len;
+    size_t len;
 
     _v3_enter(v3h, __func__);
 
-    len = (void *)&u->_internal_ - (void *)u;
+    len = offsetof(typeof(*u), _message_);
     memcpy(u, src, len);
     src += len;
     src = _v3_msg_string_get(v3h, src, u->name, sizeof(u->name) - 1);
@@ -222,11 +223,11 @@ _v3_msg_user_get(v3_handle v3h, const void *src, v3_user *u) {
 
 size_t
 _v3_msg_user_put(v3_handle v3h, const v3_user *u, void **dest, size_t size) {
-    int len;
+    size_t len;
 
     _v3_enter(v3h, __func__);
 
-    len = (void *)&u->_internal_ - (void *)u;
+    len = offsetof(typeof(*u), _message_);
     *dest = realloc(*dest, size + len);
     memcpy(*dest + size, u, len);
     size += len;
@@ -766,7 +767,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                                 : V3_DATA_UPDATE,
                             V3_DATA_TYPE_RANK,
                             &r,
-                            (void *)&r._strings_ - (void *)&r);
+                            offsetof(typeof(r), _strings_));
                     ev.rank = r;
                     ev.rank.next = NULL;
                     break;
@@ -960,7 +961,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                             : V3_DATA_UPDATE,
                         V3_DATA_TYPE_CHANNEL,
                         &c,
-                        (void *)&c._strings_ - (void *)&c);
+                        offsetof(typeof(c), _strings_));
               case V3_CHAN_AUTH:
                 if (!ev.type) {
                     ev.type = V3_EVENT_CHAN_AUTH;
@@ -1009,7 +1010,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                     if (!ev.type) {
                         ev.type = V3_EVENT_ACCT_LOCAL;
                     }
-                    memcpy(&v3c->lacct, ptr, (void *)&v3c->lacct._internal_ - (void *)&v3c->lacct);
+                    memcpy(&v3c->lacct, ptr, offsetof(typeof(v3c->lacct), _message_));
                     ev.account = v3c->lacct;
                     ctr = mc->count;
                     break;
@@ -1260,7 +1261,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                                 : V3_DATA_UPDATE,
                             V3_DATA_TYPE_USER,
                             &u,
-                            (void *)&u._strings_ - (void *)&u);
+                            offsetof(typeof(u), _strings_));
                     ev.user = u;
                     ev.user.next = NULL;
                     break;
@@ -1337,9 +1338,9 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                                 : V3_DATA_UPDATE,
                             V3_DATA_TYPE_USER,
                             &u,
-                            (void *)&u._strings_ - (void *)&u);
+                            offsetof(typeof(u), _strings_));
                     if ((!v3c->luser.id && ctr == 1) || (v3c->luser.id && u.id == v3c->luser.id)) {
-                        memcpy(&v3c->luser, &u, (void *)&u._internal_ - (void *)&u);
+                        memcpy(&v3c->luser, &u, offsetof(typeof(u), _message_));
                     }
                     ev.user = u;
                     ev.user.next = NULL;
@@ -1399,7 +1400,7 @@ _v3_msg_process(v3_handle v3h, _v3_message *m) {
                         c.name,
                         c.phonetic,
                         c.comment);
-                _v3_data(v3h, V3_DATA_UPDATE, V3_DATA_TYPE_CHANNEL, &c, (void *)&c._strings_ - (void *)&c);
+                _v3_data(v3h, V3_DATA_UPDATE, V3_DATA_TYPE_CHANNEL, &c, offsetof(typeof(c), _strings_));
                 ev.channel = c;
                 ev.channel.next = NULL;
                 _v3_event_push(v3h, &ev);

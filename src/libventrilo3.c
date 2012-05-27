@@ -412,7 +412,7 @@ _v3_packet(v3_handle v3h, const void *data, size_t len) {
         for (ctr = 0, p = (uint8_t *)buf, b = p + 50; ctr < 16; ++ctr) {
             if (len) {
                 --len;
-                chr = *(uint8_t *)data++;
+                chr = *(typeof(chr) *)data++;
                 *p++ = "0123456789abcdef"[chr >> 4];
                 *p++ = "0123456789abcdef"[chr & 0xf];
                 ++p;
@@ -505,7 +505,7 @@ _v3_resolv(const char *hostname) {
             _v3_leave(V3_HANDLE_NONE, __func__);
             return 0;
         }
-        ip.s_addr = *(in_addr_t *)*hp->h_addr_list;
+        ip.s_addr = *(typeof(ip.s_addr) *)*hp->h_addr_list;
     }
     _v3_debug(V3_HANDLE_NONE, V3_DBG_INFO, "resolved to ipv4 address: '%s'", inet_ntoa(ip));
 

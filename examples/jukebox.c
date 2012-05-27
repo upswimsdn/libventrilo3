@@ -229,6 +229,8 @@ void interrupt(int signum) {
         interrupted = true;
         fprintf(stderr, "disconnecting... ");
         v3_logout(v3h);
+    } else {
+        _exit(1);
     }
 }
 

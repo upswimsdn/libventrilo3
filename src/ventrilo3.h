@@ -118,13 +118,13 @@ struct v3_channel {
     uint16_t    voice_targets;      // 44
     uint16_t    command_targets;    // 46
 
-    char        _internal_;
+    int         _message_;
 
     char        name[32];
     char        phonetic[32];
     char        comment[128];
 
-    char        _strings_;
+    int         _strings_;
 
     v3_channel *next;
 } PACK;
@@ -133,12 +133,12 @@ struct v3_rank {
     uint16_t    id;                 // 0
     uint16_t    level;              // 2
 
-    char        _internal_;
+    int         _message_;
 
     char        name[16];
     char        description[64];
 
-    char        _strings_;
+    int         _strings_;
 
     v3_rank *   next;
 } PACK;
@@ -149,7 +149,7 @@ struct v3_user {
     uint16_t    flags;              // 4
     uint16_t    rank;               // 6
 
-    char        _internal_;
+    int         _message_;
 
     char        name[32];
     char        phonetic[32];
@@ -157,7 +157,7 @@ struct v3_user {
     char        integration[128];
     char        url[128];
 
-    char        _strings_;
+    int         _strings_;
 
     uint8_t     accept_pages;
     uint8_t     accept_u2u;
@@ -256,14 +256,14 @@ struct v3_account {
     uint8_t     see_user_comment;   // 102
     uint8_t     unknown_15;         // 103
 
-    char        _internal_;
+    int         _message_;
 
     char        name[32];
     char        owner[32];
     char        notes[256];
     char        lock_reason[128];
 
-    char        _strings_;
+    int         _strings_;
 
     uint16_t    chan_admin[32];
     uint16_t    chan_admin_count;
